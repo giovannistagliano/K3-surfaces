@@ -35,7 +35,7 @@ K3surface = new Type of HashTable;
 
 K3surface.synonym = "K3 surface";
 
-GeneralK3surface = new Type of EmbeddedProjectiveVariety;
+EmbeddedK3Surface = new Type of EmbeddedProjectiveVariety;
 
 net K3surface := S -> (
     M := S#"lattice";
@@ -50,7 +50,7 @@ net K3surface := S -> (
     )
 );
 
-? GeneralK3surface := S -> "K3 surface of genus "|toString(genus S)|" and degree "|toString(degree S)|" in PP^"|toString(dim ambient S);
+? EmbeddedK3Surface := S -> "K3 surface of genus "|toString(genus S)|" and degree "|toString(degree S)|" in PP^"|toString(dim ambient S);
 
 K3surface#{Standard,AfterPrint} = K3surface#{Standard,AfterNoPrint} = S -> (
     << endl << concatenate(interpreterDepth:"o") << lineNumber << " : " << "K3 surface" << endl;
@@ -71,7 +71,7 @@ map (K3surface,ZZ,ZZ) := o -> (S,a,b) -> (
     S.cache#("map",a,b) = phi
 );
 
-map GeneralK3surface := o -> S -> S.cache#"mapK3";
+map EmbeddedK3Surface := o -> S -> S.cache#"mapK3";
 
 coefficientRing K3surface := S -> coefficientRing S#"surface";
 
@@ -83,7 +83,7 @@ genus (K3surface,ZZ,ZZ) := (S,a,b) -> (
     lift((a^2*(2*g-2) + 2*a*b*d + b^2*n + 2)/2,ZZ)
 );
 
-genus GeneralK3surface := S -> sectionalGenus S;
+genus EmbeddedK3Surface := S -> sectionalGenus S;
 
 degree (K3surface,ZZ,ZZ) := (S,a,b) -> 2 * genus(S,a,b) - 2;
 
@@ -106,7 +106,7 @@ Var K3surface := o -> S -> S#"surface";
 
 vars K3surface := S -> (S#"curve",Var S);
 
-vars GeneralK3surface := S -> (S.cache#"pointK3",S);
+vars EmbeddedK3Surface := S -> (S.cache#"pointK3",S);
 
 K3 = method(Options => {CoefficientRing => ZZ/65521, Verbose => true});
 
@@ -114,8 +114,9 @@ K3 ZZ := o -> g -> (
     K := o.CoefficientRing;
     local X; local p; local Ass;
     makegeneralK3 := (f,p,g) -> (
-        K3surf := new GeneralK3surface from image f;
-        assert(sectionalGenus K3surf == g and degree K3surf == 2*g-2 and dim ambient K3surf == g and dim p == 0 and degree p == 1 and isSubset(p,K3surf));
+        K3surf := new EmbeddedK3Surface from image f;
+        assert(sectionalGenus K3surf == g and degree K3surf == 2*g-2 and dim ambient K3surf == g and dim p == 0 and isSubset(p,K3surf));
+        if g != 22 then assert(degree p == 1);
         K3surf.cache#"mapK3" = f;
         K3surf.cache#"pointK3" = p;
         K3surf
@@ -211,7 +212,7 @@ K3 (ZZ,ZZ,ZZ) := o -> (g,d,n) -> (
 trigonalK3 = method(Options => {CoefficientRing => ZZ/65521});
 trigonalK3 ZZ := o -> g -> (
     -- See [Beauville - A remark on the generalized franchetta conjecture for K3 surfaces]
-    if g < 8 then <<"--warning: expected g >= 8"<<endl; 
+    if g < 5 then <<"--warning: expected g >= 5"<<endl; 
     n := (g-1)%3 + 1; if n == 1 then n = 4;
     a := lift((g-n)/3,ZZ); 
     assert(a > 0);
@@ -222,9 +223,11 @@ trigonalK3 ZZ := o -> g -> (
          if n == 4 then random({{0,3},{1,1},{1,1}},0_P);
     f := rationalMap((0_P)%S,{a,1},Dominant=>true);
     assert(dim ambient target f == g and dim image f == 2 and degree image f == 2*g-2 and sectionalGenus image f == g);
-    <<"-- got: "<<expression f<<endl;
-    <<"-- degrees of image: "<<(concatenate for l in sort pairs tally flatten degrees ideal image f list (toString first l)|"^"|(toString(last l)|" "))<<"(expected degrees: 2^"<<binomial(g-2,2)<<")"<<endl;
-    (multirationalMap first projections S,f)   
+    -- <<"-- got: "<<expression f<<endl;
+    -- <<"-- degrees of image: "<<(concatenate for l in sort pairs tally flatten degrees ideal image f list (toString first l)|"^"|(toString(last l)|" "))<<"(expected degrees: 2^"<<binomial(g-2,2)<<")"<<endl;
+    T := new EmbeddedK3Surface from image f;
+    T.cache#"mapK3" = check rationalMap(f,T);
+    T
 );
 
 MAXa = 7;
@@ -677,6 +680,14 @@ EXAMPLE {
 "first vars S",
 "last vars S"},
 SeeAlso => {(symbol SPACE,K3surface,Sequence)}} 
+
+document {Key => {trigonalK3,(trigonalK3,ZZ),[trigonalK3,CoefficientRing]}, 
+Headline => "trigonal K3 surface", 
+Usage => "trigonalK3 g", 
+Inputs => {"g" => ZZ =>{"the genus"}}, 
+Outputs => {EmbeddedProjectiveVariety => {"a random trigonal K3 surface of genus ", TEX///$g$///," and degree ",TEX///$2g-2$///," in ",TEX///$\mathbb{P}^g$///}}, 
+PARA{"This implements the construction given in the paper ",EM "A remark on the generalized franchetta conjecture for K3 surfaces",", by Beauville."},
+EXAMPLE {"S = trigonalK3 11", "f = map S;", "image f", "U = source f", "multirationalMap first projections source f"}} 
 
 -- Tests --
 
