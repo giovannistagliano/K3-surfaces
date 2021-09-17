@@ -1,16 +1,10 @@
 
-///
-installPackage "K3s";
--- check K3s
-viewHelp (K3,ZZ,Nothing)
-///
-
 if version#"VERSION" < "1.18" then error "this package requires Macaulay2 version 1.18 or newer";
 
 newPackage(
     "K3s",
-    Version => "0.4", 
-    Date => "September 15, 2021",
+    Version => "0.5", 
+    Date => "September 17, 2021",
     Authors => {{Name => "Michael Hoff", 
                  Email => "hahn@math.uni-sb.de"},
                 {Name => "Giovanni Staglianò", 
@@ -31,20 +25,17 @@ if SpecialFanoFourfolds.Options.Version < "2.3" then (
     error "required SpecialFanoFourfolds package version 2.3 or newer";
 );
 
-export{"K3","K3surface","ideals","project","trigonalK3"}
+export{"K3","K3surface","project","trigonalK3"}
 
 debug SpecialFanoFourfolds;
 needsPackage "Truncations";
 needsPackage "MinimalPrimes";
 
-t := local t;
-ringPP = (n,K) -> Grass(0,n,K,Variable=>t);
-
 K3surface = new Type of HashTable;
 
 K3surface.synonym = "K3 surface";
 
-GeneralK3surface = new Type of HashTable;
+GeneralK3surface = new Type of EmbeddedProjectiveVariety;
 
 net K3surface := S -> (
     M := S#"lattice";
@@ -59,68 +50,81 @@ net K3surface := S -> (
     )
 );
 
-net GeneralK3surface := S -> (
-    net("general K3 surface of genus "|toString(S#"genus")|" and degree "|toString(2*S#"genus"-2)|" in PP^"|toString(S#"genus"))
-)
+? GeneralK3surface := S -> "K3 surface of genus "|toString(genus S)|" and degree "|toString(degree S)|" in PP^"|toString(dim ambient S);
 
 K3surface#{Standard,AfterPrint} = K3surface#{Standard,AfterNoPrint} = S -> (
     << endl << concatenate(interpreterDepth:"o") << lineNumber << " : " << "K3 surface" << endl;
 );
 
-GeneralK3surface#{Standard,AfterPrint} = GeneralK3surface#{Standard,AfterNoPrint} = S -> (
-    << endl << concatenate(interpreterDepth:"o") << lineNumber << " : " << "K3 surface" << endl;
+map (K3surface,ZZ,ZZ) := o -> (S,a,b) -> (
+    if S.cache#?("map",a,b) then return S.cache#("map",a,b);
+    M := S#"lattice";
+    d := M_(0,1);
+    n := M_(1,1);
+    g := lift((M_(0,0) + 2)/2,ZZ);
+    if d == 0 and n == -2 then if b != 0 then error "the source is a nodal K3 surface";
+    H := ideal S.cache#"hyperplane";
+    C := ideal S#"curve";
+    phi := multirationalMap(if b != 0 then mapDefinedByDivisor(ring Var S,{(H,a),(C,b)}) else mapDefinedByDivisor(ring Var S,{(H,a)}));
+    assert(source phi === Var S);
+    if dim target phi =!= genus(S,a,b) then error "something went wrong on the target of the map defined by the divisor";
+    S.cache#("map",a,b) = phi
 );
 
-map (K3surface,ZZ,ZZ) := o -> (S,a,b) -> (S#"map") (a,b);
+map GeneralK3surface := o -> S -> S.cache#"mapK3";
 
-map GeneralK3surface := o -> S -> S#"map";
+coefficientRing K3surface := S -> coefficientRing S#"surface";
 
-coefficientRing K3surface := S -> coefficientRing ring S#"surface";
+genus (K3surface,ZZ,ZZ) := (S,a,b) -> (
+    M := S#"lattice";
+    d := M_(0,1);
+    n := M_(1,1);
+    g := lift((M_(0,0) + 2)/2,ZZ);
+    lift((a^2*(2*g-2) + 2*a*b*d + b^2*n + 2)/2,ZZ)
+);
 
-coefficientRing GeneralK3surface := S -> coefficientRing map S;
-
-genus (K3surface,ZZ,ZZ) := (S,a,b) -> (S#"genus") (a,b)
-
-genus GeneralK3surface := S -> S#"genus";
+genus GeneralK3surface := S -> sectionalGenus S;
 
 degree (K3surface,ZZ,ZZ) := (S,a,b) -> 2 * genus(S,a,b) - 2;
-
-degree GeneralK3surface := S -> 2 * genus(S) - 2;
 
 K3surface Sequence := (S,ab) -> (
     if not(#ab == 2 and instance(first ab,ZZ) and instance(last ab,ZZ)) then error "expected a sequence of two integers";
     (a,b) := ab;
     f := map(S,a,b);
-    I := if char coefficientRing S <= 65521 and genus(S,1,0) > 3 then image(f,"F4") else image f;
-    if flatten degrees I != toList(binomial(genus(S,a,b)-2,2):2) then error "got wrong degrees for the generators";
-    return I; 
+    if f#"image" === null and char coefficientRing S <= 65521 and genus(S,1,0) > 3 then (
+        f = toRationalMap f;
+        image(f,"F4");
+        f = multirationalMap f;
+        S.cache#("map",a,b) = f;
+        assert(f#"image" =!= null);
+    );
+    if degrees image f =!= {({2},binomial(genus(S,a,b)-2,2))} then <<"--warning: the degrees for the generators are not as expected"<<endl;
+    image f
 );
 
-ideal GeneralK3surface := S -> image map S;
+Var K3surface := o -> S -> S#"surface";
 
-ideals = method();
+vars K3surface := S -> (S#"curve",Var S);
 
-ideals K3surface := S -> (S#"curve",S#"surface");
-
-ideals GeneralK3surface := S -> (S#"point",ideal S);
+vars GeneralK3surface := S -> (S.cache#"pointK3",S);
 
 K3 = method(Options => {CoefficientRing => ZZ/65521, Verbose => true});
 
-K3 ZZ := o -> (g) -> (
+K3 ZZ := o -> g -> (
     K := o.CoefficientRing;
     local X; local p; local Ass;
     makegeneralK3 := (f,p,g) -> (
-        new GeneralK3surface from {
-            "map" => f,
-            "point" => p,
-            "genus" => g
-        }
+        K3surf := new GeneralK3surface from image f;
+        assert(sectionalGenus K3surf == g and degree K3surf == 2*g-2 and dim ambient K3surf == g and dim p == 0 and degree p == 1 and isSubset(p,K3surf));
+        K3surf.cache#"mapK3" = f;
+        K3surf.cache#"pointK3" = p;
+        K3surf
     );
     if member(g,{3,4,5,6,7,8,9,10,12}) then (
         (X,p) = randomPointedMukaiThreefold(g,CoefficientRing=>K);
-        j := parametrize arandom({1},p);
+        j := parametrize random({1},p);
         X = j^* X; p = j^* p;
-        return makegeneralK3(rationalMap(quotient X,ring X),p,g);
+        return makegeneralK3(super 1_X,p,g);
     );
     if g == 11 then (
         if o.Verbose then <<"-- constructing general K3 surface of genus "<<g<<" and degree "<<2*g-2<<" in PP^"<<g<<endl;
@@ -164,50 +168,43 @@ K3 (ZZ,ZZ,ZZ) := o -> (g,d,n) -> (
     if g >= 3 and g <= 12 and d == 2 and n == -2 then (
         found = true;
         (T,C) = randomK3surfaceContainingConic(g,CoefficientRing=>K);
-        H = if g != 10 and g != 12 then ideal first gens ring T else arandom({1},ring T);
+        H = if g != 10 and g != 12 then Var ideal first gens ring ambient T else random(1,0_T);
     );
     if member(g,{3,4,5,6,7,8,9,10,12}) and d == 1 and n == -2 then ( 
         found = true;
         (X,C) = randomMukaiThreefoldContainingLine(g,CoefficientRing=>K);
-        j = parametrize arandom({1},C);
+        j = parametrize random({1},C);
         (T,C) = (j^* X,j^* C);
-        H = arandom({1},source j);
+        H = random(1,0_T);
     );
     if (member(g,{3,4,5}) and d >= 3 and n == -2) and (g != 5 or d <= 8) and (g != 4 or d <= 6) and (g != 3 or d <= 8) then (
         found = true;
         C = randomRationalCurve(d,g,CoefficientRing=>K); 
-        H = arandom({1},ringPP(g,K));
-        T = arandom(if g == 3 then {4} else if g == 4 then {2,3} else {2,2,2},C);
+        H = random(1,0_C);
+        T = random(if g == 3 then {4} else if g == 4 then {{2},{3}} else {{2},{2},{2}},C);
     );
     if (member(g,{3,4,5}) and member(d,{3,4,5,6,7,8,9}) and n == 0) and (g != 5 or d <= 9) and (g != 4 or d <= 7) and (g != 3 or d <= 8) then (
         found = true;
         C = randomEllipticCurve(d,g,CoefficientRing=>K);
-        H = arandom({1},ringPP(g,K));
-        T = arandom(if g == 3 then {4} else if g == 4 then {2,3} else {2,2,2},C);
+        H = random(1,0_C);
+        T = random(if g == 3 then {4} else if g == 4 then {{2},{3}} else {{2},{2},{2}},C);
     );
     if member(g,{3,4,5,6,7,8,9,10,12}) and d == 0 and n == -2 then (
         found = true;
         (X,p) = randomPointedMukaiThreefold(g,CoefficientRing=>K);
-        j = parametrize arandom({1},tangentSpace(X,p));
+        j = parametrize random({1},tangentSpace(X,p));
         T = j^* X; 
         C = j^* p; -- the node
+        H = random(1,0_T);
     );
     if not found then error ("no procedure found to construct K3 surface with rank 2 lattice defined by the "|toString(matrix{{2*g-2,d},{d,n}}));
-    g' := (a,b) -> lift((a^2*(2*g-2) + 2*a*b*d + b^2*n + 2)/2,ZZ);
-    f := memoize(
-        (a,b) -> (
-            if d == 0 and n == -2 then if b != 0 then error "the source is a nodal K3 surface";
-            phi := if b != 0 then mapDefinedByDivisor(quotient T,{(H,a),(C,b)}) else mapDefinedByDivisor(quotient T,{(H,a)});
-            if numgens target phi =!= g'(a,b)+1 then error "something went wrong on the target of the map defined by the divisor";
-            phi
-        )
-    );
+    W := new CacheTable;
+    W#"hyperplane" = H;
     new K3surface from {
-        "map" => f,
+        symbol cache => W,
         "surface" => T,
         "curve" => C,
-        "lattice" => matrix{{2*g-2,d},{d,n}},
-        "genus" => g'
+        "lattice" => matrix{{2*g-2,d},{d,n}}
     }
 );
 
@@ -269,59 +266,53 @@ K3 (ZZ,Nothing) := o -> (G,nu) -> (
 );
 
 randomPointedMukaiThreefold = method(Options => {CoefficientRing => ZZ/65521});
-randomPointedMukaiThreefold (ZZ) := o -> (g) -> (
+randomPointedMukaiThreefold ZZ := o -> g -> (
     local p; local X; local j; local psi;
     K := o.CoefficientRing;
     if g == 3 then (
-        p = point ringPP(4,K);
-        X = arandom({4},p);
+        p = point PP_K^4;
+        X = random({4},p);
         return (X,p);
     );
     if g == 4 then (
-        p = point ringPP(5,K);
-        X = arandom({2,3},p);
+        p = point PP_K^5;
+        X = random({{2},{3}},p);
         return (X,p);
     );
     if g == 5 then (
-        p = point ringPP(6,K);
-        X = arandom({2,2,2},p);
+        p = point PP_K^6;
+        X = random({{2},{2},{2}},p);
         return (X,p);
     );
     if g == 6 then (
-        G14 := Grass(1,4,K,Variable=>t);
-        p = trim lift(schubertCycle((3,3),G14),ambient G14);
-        j = parametrize arandom({1,1},p);
-        j = rationalMap(ringPP(7,K),source j) * j;
-        X = j^* ideal G14;
+        G14 := Var Grass(1,4,K,Variable=>"t");
+        p = schubertCycle((3,3),G14);
+        j = parametrize random({{1},{1}},p);
         p = j^* p;
-        X = trim(X + arandom(2,p));
+        X = (j^* G14) * random(2,p);
         return (X,p);
     );
     if g == 7 then (
-        quinticDelPezzoSurface := image rationalMap(ringPP(2,K),{3,4});
-        psi = rationalMap(quinticDelPezzoSurface + arandom({1},ring quinticDelPezzoSurface),2);
+        quinticDelPezzoSurface := Var image rationalMap(ring PP_K^2,{3,4});
+        psi = rationalMap(quinticDelPezzoSurface * random(1,0_quinticDelPezzoSurface),2);
         p = psi point source psi;
-        j = parametrize arandom({1,1},p);
-        j = rationalMap(ringPP(8,K),source j) * j;
-        X = j^* image(2,psi);
+        j = parametrize random({{1},{1}},p);
+        X = j^* Var image(2,toRationalMap psi);
         p = j^* p;
         return (X,p);
     );
     if g == 8 then (
-        G15 := Grass(1,5,K,Variable=>t);
-        p = trim lift(schubertCycle((4,4),G15),ambient G15);
-        j = parametrize arandom({1,1,1,1,1},p);
-        j = rationalMap(ringPP(9,K),source j) * j;
-        X = j^* ideal G15;
+        G15 := Var Grass(1,5,K,Variable=>"t");
+        p = schubertCycle((4,4),G15);
+        j = parametrize random({{1},{1},{1},{1},{1}},p);
+        X = j^* G15;
         p = j^* p;
         return (X,p);
     );
     if g == 9 then (
-        VeroneseSurfaceInP6 := trim(sub(kernel veronese(2,2,K,Variable=>(t,t)),ringPP(6,K)) + ideal last gens ringPP(6,K));
-        psi = rationalMap(VeroneseSurfaceInP6,3,2);
+        psi = rationalMap(image(PP_K^(2,2) << PP_K^6),3,2);
         p = psi point source psi;
-        j = parametrize arandom({1,1,1},p);
-        j = rationalMap(ringPP(10,K),source j) * j;
+        j = parametrize random({{1},{1},{1}},p);
         X = j^* image psi;
         p = j^* p;
         return (X,p);
@@ -338,62 +329,55 @@ randomPointedMukaiThreefold (ZZ) := o -> (g) -> (
 );
 
 randomMukaiThreefoldContainingLine = method(Options => {CoefficientRing => ZZ/65521});
-randomMukaiThreefoldContainingLine (ZZ) := o -> (g) -> (
+randomMukaiThreefoldContainingLine ZZ := o -> g -> (
     local L; local X; local j; local psi;
     K := o.CoefficientRing;
     if g == 3 then (
-        L = arandom({1,1,1},ringPP(4,K));
-        X = arandom({4},L);
+        L = random({{1},{1},{1}},0_(PP_K^4));
+        X = random({4},L);
         return (X,L);
     );
     if g == 4 then (
-        L = arandom({1,1,1,1},ringPP(5,K));
-        X = arandom({2,3},L);
+        L = random({{1},{1},{1},{1}},0_(PP_K^5));
+        X = random({{2},{3}},L);
         return (X,L);
     );
     if g == 5 then (
-        L = arandom({1,1,1,1,1},ringPP(6,K));
-        X = arandom({2,2,2},L);
+        L = random({{1},{1},{1},{1},{1}},0_(PP_K^6));
+        X = random({{2},{2},{2}},L);
         return (X,L);
     );
     if g == 6 then (
-        G14 := Grass(1,4,K,Variable=>t);
-        L = trim lift(schubertCycle((3,2),G14),ambient G14);
-        j = parametrize arandom({1,1},L);
-        j = rationalMap(ringPP(7,K),source j) * j;
-        X = j^* ideal G14;
+        G14 := Var Grass(1,4,K,Variable=>"t");
+        L = schubertCycle((3,2),G14);
+        j = parametrize random({{1},{1}},L);
         L = j^* L;
-        X = trim(X + arandom(2,L));
+        X = (j^* G14) * random(2,L);
         return (X,L);
     );
     if g == 7 then (
-        mapDP5 := rationalMap(ringPP(2,K),{3,4});
-        quinticDelPezzoSurface := image mapDP5;
-        pt := mapDP5 point ringPP(2,K);
-        psi = rationalMap(quinticDelPezzoSurface + arandom({1},pt),2);
-        L = psi ideal image basis(1,intersect(pt,point source psi));
-        j = parametrize arandom({1,1},L);
-        j = rationalMap(ringPP(8,K),source j) * j;
-        X = j^* image(2,psi);
+        mapDP5 := multirationalMap rationalMap(ring PP_K^2,{3,4});
+        pt := mapDP5 point source mapDP5;
+        psi = rationalMap((image mapDP5) * random(1,pt),2);
+        L = psi linearSpan {pt,point source psi};
+        j = parametrize random({{1},{1}},L);
+        X = j^* Var image(2,toRationalMap psi);
         L = j^* L;
         return (X,L);
     );
     if g == 8 then (
-        G15 := Grass(1,5,K,Variable=>t);
-        L = trim lift(schubertCycle((4,3),G15),ambient G15);
-        j = parametrize arandom({1,1,1,1,1},L);
-        j = rationalMap(ringPP(9,K),source j) * j;
-        X = j^* ideal G15;
+        G15 := Var Grass(1,5,K,Variable=>"t");
+        L = schubertCycle((4,3),G15);
+        j = parametrize random({{1},{1},{1},{1},{1}},L);
+        X = j^* G15;
         L = j^* L;
         return (X,L);
     );
     if g == 9 then (
-        mapVerInP6 := (rationalMap veronese(2,2,K,Variable=>(t,t))) * rationalMap(ringPP(5,K),ringPP(6,K),(vars ringPP(5,K))|matrix{{0_K}});
-        VeroneseSurfaceInP6 := image mapVerInP6;
-        psi = rationalMap(VeroneseSurfaceInP6,3,2);
-        L = psi ideal image basis(1,intersect(mapVerInP6 point ringPP(2,K),point source psi));
-        j = parametrize arandom({1,1,1},L);
-        j = rationalMap(ringPP(10,K),source j) * j;
+        mapVerInP6 := (parametrize PP_K^(2,2)) << PP_K^6;
+        psi = rationalMap(image mapVerInP6,3,2);
+        L = psi linearSpan {mapVerInP6 point source mapVerInP6,point source psi};
+        j = parametrize random({{1},{1},{1}},L);
         X = j^* image psi;
         L = j^* L;
         return (X,L);
@@ -410,15 +394,15 @@ randomMukaiThreefoldContainingLine (ZZ) := o -> (g) -> (
 );
 
 randomK3surfaceContainingConic = method(Options => {CoefficientRing => ZZ/65521});
-randomK3surfaceContainingConic (ZZ) := o -> (g) -> (
+randomK3surfaceContainingConic ZZ := o -> g -> (
     if not (g >= 3 and g <= 12) then error "expected integer between 3 and 12";
     local X; local T; local C; local p; local j;
     K := o.CoefficientRing;    
     if member(g,{3,4,5,6,7,8,9,11}) then (
         (X,p) = randomPointedMukaiThreefold(g+1,CoefficientRing=>K);
-        j = parametrize arandom({1},tangentSpace(X,p));
+        j = parametrize random({1},tangentSpace(X,p));
         T = j^* X;
-        p = trim sub(j^* p,quotient j^* X);
+        p = (j^* p) % T;
         pr := rationalMap p; 
         (pr1,pr2) := graph pr;
         C = pr2 pr1^* p;
@@ -427,72 +411,74 @@ randomK3surfaceContainingConic (ZZ) := o -> (g) -> (
     if g == 10 then (
         XpLC10 := pointLineAndConicOnMukaiThreefoldOfGenus10(K,false,true);
         (X,C) = (XpLC10_0,XpLC10_3);
-        j = parametrize arandom({1},C);
+        j = parametrize random({1},C);
         (T,C) = (j^* X,j^* C);
     );
     if g == 12 then (
         XpLC12 := pointLineAndConicOnMukaiThreefoldOfGenus12(K,false,true);
         (X,C) = (XpLC12_0,XpLC12_3);
-        j = parametrize arandom({1},C);
+        j = parametrize random({1},C);
         (T,C) = (j^* X,j^* C);
     );
-    if not (dim C -1 == 1 and degree C == 2 and dim T -1 == 2 and degree T == 2*g-2 and isSubset(T,C)) then error "something went wrong";
+    if not (dim C == 1 and degree C == 2 and sectionalGenus C == 0 and dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and isSubset(C,T)) then error "something went wrong";
     (T,C)
 );
 
 pointLineAndConicOnMukaiThreefoldOfGenus10 = (K,withLine,withConic) -> (
     line := null; conic := null;
-    pts := apply(4,i -> point ringPP(2,K)); 
-    p := point ringPP(2,K);
-    f := rationalMap(sub(intersect pts,quotient arandom({5},intersect append(apply(pts,i -> i^2),p))),3);
-    f = f * rationalMap(target f,ringPP(4,K),for i to 4 list random(1,target f));
+    pts := apply(4,i -> point PP_K^2); 
+    p := point PP_K^2;
+    f := rationalMap((⋃ pts) % random(5,p + ⋃ apply(pts,i -> 2*i)),3);
+    f = f * rationalMap point target f;
     -- C is a curve of degree 7 and genus 2 in P^4 and p is one of its points 
     C := image f;
     p = f p;
-    if not(dim C -1 == 1 and degree C == 7 and first genera C == 2 and dim p -1 == 0 and degree p == 1 and isSubset(C,p)) then error "something went wrong";
+    if not(dim C == 1 and degree C == 7 and sectionalGenus C == 2 and dim p == 0 and degree p == 1 and isSubset(p,C)) then error "something went wrong";
     -- Q is a quadric in P^4 containing C and a point q
-    q := point ringPP(4,K);
-    Q := quotient arandom({2},intersect(C,q));
+    q := point target f;
+    Q := random(2,C + q);
     -- psi is the map Q --> PP^11 defined by the quintic hypersurfaces with double points along C
-    psi := rationalMap(saturate (sub(C,Q))^2,5);
-    if numgens target psi != 12 then error "something went wrong";
+    psi := rationalMap(C_Q,5,2);
+    if dim target psi != 11 then error "something went wrong";
+    psi = toRationalMap psi;
     if K === ZZ/(char K) then interpoleImage(psi,toList(28:2),2) else forceImage(psi,image(2,psi));
-    X := psi#"idealImage";
+    psi = multirationalMap psi;
+    X := psi#"image";
     assert(X =!= null);
     q = psi q;
-    if ? q != "one-point scheme in PP^11" then error "something went wrong";
+    if ? ideal q != "one-point scheme in PP^11" then error "something went wrong";
     if withConic then (
         -- the base locus of psi is supported on C and a reducible curve D, the union of 4 lines
-        D := saturate(trim lift(ideal matrix psi,ambient source psi),C);
+        D := (Var trim lift(ideal matrix toRationalMap psi,ring ambient source psi)) \\ C;
         -- L is a line passing through p\in C which is contained in Q and intersects D in one point (thus psi L is a conic)
         -- (this needs to find a K-rational point on a certain 0-dimensional set defined over K)
-        p' := select(decompose saturate(D + coneOfLines(ideal Q,p)),i -> dim i -1 == 0 and degree i == 1);
+        p' := select(decompose(D * coneOfLines(Q,p)),i -> dim i == 0 and degree i == 1);
         if # p' == 0 then error ("failed to find conic on Mukai threefold of genus 10 defined over "|toString(K));
-        L := ideal image basis(1,intersect(p,first p'));
+        L := linearSpan {p,first p'};
         F := psi L;
-        if not(dim F -1 == 1 and degree F == 2 and flatten degrees F == append(toList(9:1),2) and isSubset(X,F)) then error "something went wrong when trying to find conic on Mukai threefold of genus 10";
+        if not(dim F == 1 and degree F == 2 and flatten degrees ideal F == append(toList(9:1),2) and isSubset(F,X)) then error "something went wrong when trying to find conic on Mukai threefold of genus 10";
         conic = F;
     );
     if withLine then (
-        psi = rationalMap(psi,Dominant=>true);
+        psi = toRationalMap rationalMap(psi,Dominant=>true);
         -- B is the base locus of psi^-1, B-Supp(B) is a line.
         B := trim lift(ideal matrix approximateInverseMap(psi,Verbose=>false),ambient target psi);
         j := parametrize ideal matrix rationalMap(B,1);
         pr := rationalMap for i to 3 list random(1,source j);
         B' := pr j^* B;
         E' := B' : radical B';
-        E := j radical trim (j^* X + pr^* E');
-        if not(dim E -1 == 1 and degree E == 1 and flatten degrees E == toList(10:1) and isSubset(X,E)) then error "something went wrong when trying to find line on Mukai threefold of genus 10";
-        line = E;
+        E := j radical trim (j^* ideal X + pr^* E');
+        if not(dim E -1 == 1 and degree E == 1 and flatten degrees E == toList(10:1) and isSubset(ideal X,E)) then error "something went wrong when trying to find line on Mukai threefold of genus 10";
+        line = Var E;
     );
     (X,q,line,conic)
 );
 
 pointLineAndConicOnMukaiThreefoldOfGenus12 = (K,withLine,withConic) -> (
     line := null; conic := null;
-    f := rationalMap veronese(1,6,K,Variable=>(t,t));
-    f = f * rationalMap(target f,ringPP(4,K),for i to 4 list random(1,target f));
-    p := point ringPP(4,K);
+    f := rationalMap veronese(1,6,K);
+    f = f * rationalMap(target f,ring PP_K^4,for i to 4 list random(1,target f));
+    p := ideal point PP_K^4;
     C := trim sub(image f,quotient arandom({2},intersect(p,image f)));
     psi := rationalMap(saturate(C^2),5);
     if numgens target psi != 14 then error "something went wrong";
@@ -514,7 +500,7 @@ pointLineAndConicOnMukaiThreefoldOfGenus12 = (K,withLine,withConic) -> (
         conic = E;
     );
     if withLine then (
-        C = trim lift(C,ringPP(4,K));
+        C = trim lift(C,ring PP_K^4);
         q := f point source f;
         -- L is a secant line to the sextic curve C contained in the quadric, source of psi
         q' := select(decompose saturate(C + coneOfLines(ideal source psi,q),q),l -> dim l == 1 and degree l == 1);
@@ -524,38 +510,8 @@ pointLineAndConicOnMukaiThreefoldOfGenus12 = (K,withLine,withConic) -> (
         if not(dim F -1 == 1 and degree F == 1 and flatten degrees F == toList(12:1) and isSubset(X,F)) then error "something went wrong when trying to find line on Mukai threefold of genus 12";
         line = F;
     );
-    (X,p,line,conic)
+    (Var X,Var p,if line === null then line else Var line,if conic === null then conic else Var conic)
 );
-
-------------------------------------------------------------
--- mukaiModel = method(Options => {CoefficientRing => ZZ/65521});
--- mukaiModel (ZZ) := o -> (g) -> (
---     K := o.CoefficientRing;
---     if not member(g,{6,7,8,9,10,12}) then error "expected the genus to be in the set {6,7,8,9,10,12}";
---     local psi;
---     if g == 6 then (
---         error "to be implemented";
---     );
---     if g == 7 then ( -- See [Zak - Tangents and secants of algebraic varieties - Thm. 3.8 (case 5), p. 67.]
---         G14inP10 := sub(sub(ideal Grass(1,4,K,Variable=>t),vars ringPP(9,K)),ringPP(10,K)) + (ideal last gens ringPP(10,K));
---         psi = rationalMap(G14inP10,2);
---         return (image psi,psi);
---     );
---     if g == 8 then (-- See [Zak - Tangents and secants of algebraic varieties - Thm. 3.8 (case 3), p. 67.]
---         P1xP3inP8 := minors(2,genericMatrix(ringPP(8,K),2,4)) + (ideal last gens ringPP(8,K));
---         psi = rationalMap(P1xP3inP8,2);
---         return (image psi,psi);
---     );
---     if g == 9 then ( -- I don't remember where I found this.
---         VeroneseSurfaceInP6 := minors(2,genericSymmetricMatrix(ringPP(6,K),3)) + (ideal last gens ringPP(6,K));
---         psi = rationalMap(VeroneseSurfaceInP6,3,2); 
---         return (image psi,psi);
---     );
---     if g == 10 or g == 12 then (
---         error "to be implemented";
---     );
--- );
-------------------------------------------------------------
 
 power0 := method();
 power0 (Ideal,ZZ) := (p,d) -> (
@@ -574,19 +530,17 @@ power0 (Ideal,ZZ) := (p,d) -> (
 project = method();
 project (VisibleList,K3surface,ZZ,ZZ) := (L,S,a,b) -> (
    try assert(ring matrix{L} === ZZ and #L>0) else error "expected a list of integers";
-   phi := map(S,a,b);
+   phi := toRationalMap map(S,a,b);
    d := max flatten degrees ideal matrix phi;
    J := rationalMap(intersect apply(L,i -> power0(point source phi,i)),d);   
    f := rationalMap(intersect(ideal matrix phi,ideal matrix J),d);
-   if char coefficientRing S <= 65521 then image(f,"F4") else image f
+   if char coefficientRing S <= 65521 then Var image(f,"F4") else Var image f
 );
 
-tangentSpace (Ideal,Ideal) := (I,p) -> ideal tangentSpace(Var I,Var p);
-
 randomEllipticNormalCurve = method(Options => {CoefficientRing => ZZ/65521});
-randomEllipticNormalCurve (ZZ) := o -> (deg) -> (
+randomEllipticNormalCurve ZZ := o -> deg -> (
     K := o.CoefficientRing;
-    S := ringPP(2,K);
+    S := ring PP_K^2;
     y := gens S;
     E := y_2^2*y_0-y_1^3+random(0,S)*y_1*y_0^2+random(0,S)*y_0^3;
     n := deg -1;
@@ -597,29 +551,23 @@ randomEllipticNormalCurve (ZZ) := o -> (deg) -> (
     linsys1 := gens truncate(d,(ideal H +ideal E):nO);
     linsys := mingens ideal (linsys1 % ideal E);
     SE := S/E;          
-    phi := map(SE,ringPP(n,K),sub(linsys,SE));
-    trim kernel phi
+    phi := map(SE,ring PP_K^n,sub(linsys,SE));
+    Var trim kernel phi
 );
 
 randomEllipticCurve = method(Options => {CoefficientRing => ZZ/65521});
 randomEllipticCurve (ZZ,ZZ) := o -> (d,n) -> (
     K := o.CoefficientRing;
     C := randomEllipticNormalCurve(d,CoefficientRing=>K);
-    f := rationalMap(ringPP(d-1,K),ringPP(n,K),for i to n list random(1,ringPP(d-1,K)));
+    f := rationalMap(ring PP_K^(d-1),ring PP_K^n,for i to n list random(1,ring PP_K^(d-1)));
     f C
-);
-
-randomRationalNormalCurve = method(Options => {CoefficientRing => ZZ/65521});
-randomRationalNormalCurve (ZZ) := o -> (deg) -> (
-    K := o.CoefficientRing;
-    trim kernel veronese(1,deg,K,Variable=>(t,t))
 );
 
 randomRationalCurve = method(Options => {CoefficientRing => ZZ/65521});
 randomRationalCurve (ZZ,ZZ) := o -> (d,n) -> (
     K := o.CoefficientRing;
-    C := randomRationalNormalCurve(d,CoefficientRing=>K);
-    f := rationalMap(ringPP(d,K),ringPP(n,K),for i to n list random(1,ringPP(d,K)));
+    C := PP_K^(1,d);
+    f := rationalMap(ring ambient C,ring PP_K^n,for i to n list random(1,ring ambient C));
     f C
 );
 
@@ -639,15 +587,15 @@ Usage => "K3(d,g,n)
 K3(d,g,n,CoefficientRing=>K)", 
 Inputs => {"d" => ZZ,"g" => ZZ,"n" => ZZ}, 
 Outputs => {{"a ",TO2{K3surface,"K3 surface"}," defined over ",TEX///$K$///," with rank 2 lattice defined by the intersection matrix ",TEX///$\begin{pmatrix} 2g-2 & d \\ d & n \end{pmatrix}$///}}, 
-EXAMPLE {"time S = K3(6,1,-2)"},
-SeeAlso => {(K3,ZZ),(K3,ZZ,Nothing)}}
+EXAMPLE {"K3(6,1,-2)"},
+SeeAlso => {(K3,ZZ),(K3,ZZ,Nothing),(symbol SPACE,K3surface,Sequence)}}
 
 document {Key => {(K3,ZZ,Nothing)}, 
 Headline => "find function to construct K3 surface of given genus", 
 Usage => "K3(G,)", 
 Inputs => { ZZ => "G" => {"the genus"}}, 
-Outputs => {List => {"a list of terns ",TT"(d,g,n)"," such that (",TO2{(K3,ZZ,ZZ,ZZ),TT"(K3(d,g,n)"},")",TO2{(symbol SPACE,K3surface,Sequence),"(a,b)"}," is the ideal of a K3 surface of genus ",TT"G",", for some integers ",TT"a,b"}}, 
-EXAMPLE {"K3(11,)", "S = K3(5,5,-2)", "? S(1,2)", "? (map(S,1,2)) first ideals S"}, 
+Outputs => {List => {"a list of terns ",TT"(d,g,n)"," such that (",TO2{(K3,ZZ,ZZ,ZZ),TT"(K3(d,g,n)"},")",TO2{(symbol SPACE,K3surface,Sequence),"(a,b)"}," is a K3 surface of genus ",TT"G",", for some integers ",TT"a,b"}}, 
+EXAMPLE {"K3(11,)", "S = K3(5,5,-2)", "S(1,2)", "(map(S,1,2)) first vars S"}, 
 SeeAlso => {(K3,ZZ,ZZ,ZZ),(symbol SPACE,K3surface,Sequence)}} 
 
 document {Key => {(K3,ZZ)}, 
@@ -656,7 +604,7 @@ Usage => "K3 g
 K3(g,CoefficientRing=>K)",
 Inputs => {"g" => ZZ}, 
 Outputs => {{"a general K3 surface defined over ",TEX///$K$///," of genus ",TEX///$g$///," in ",TEX///$\mathbb{P}^g$///}}, 
-EXAMPLE {"time S = K3 9"},
+EXAMPLE {"K3 9"},
 SeeAlso => {(K3,ZZ,ZZ,ZZ)}}
 
 document {Key => {(genus,K3surface,ZZ,ZZ)}, 
@@ -686,8 +634,8 @@ Inputs => {VisibleList => {"a list ",TEX///$\{i,j,k,\ldots\}$///," of nonnegativ
            K3surface => "S" => {"a special K3 surface with rank 2 lattice spanned by ",TEX///$H,C$///},
            ZZ => "a",
            ZZ => "b"}, 
-Outputs => {Ideal => {"the ideal of the projection of ", TEX///$S$///,", embedded by the complete linear system ",TEX///$|a H + b C|$///,", from ",TEX///$i$///," random points of multiplicity 1, ",TEX///$j$///," random points of multiplicity 2, ",TEX///$k$///," random points of multiplicity 3, and so on until the last integer in the given list."}}, 
-EXAMPLE {"time S = K3(8,2,-2)", "time P = project({5,3,1},S,2,1); -- (5th + 3rd + simple)-projection of S(2,1)","? P"}, 
+Outputs => {EmbeddedProjectiveVariety => {"the projection of ", TEX///$S$///," embedded by the complete linear system ",TEX///$|a H + b C|$///," from ",TEX///$i$///," random points of multiplicity 1, ",TEX///$j$///," random points of multiplicity 2, ",TEX///$k$///," random points of multiplicity 3, and so on until the last integer in the given list."}}, 
+EXAMPLE {"S = K3(8,2,-2)", "project({5,3,1},S,2,1); -- (5th + 3rd + simple)-projection of S(2,1)"}, 
 SeeAlso => {(symbol SPACE,K3surface,Sequence)}} 
 
 document {Key => {(coefficientRing,K3surface)}, 
@@ -698,13 +646,13 @@ Outputs => {Ring => {"the coefficient ring of ", TEX///$S$///}},
 EXAMPLE {"K = ZZ/3331","S = K3(5,2,-2,CoefficientRing=>K)", "coefficientRing S"}} 
 
 document {Key => {(symbol SPACE,K3surface,Sequence)}, 
-Headline => "defining ideal of a K3 surface", 
+Headline => "embedding of a K3 surface", 
 Usage => "S(a,b)", 
 Inputs => {"S" => K3surface => {"a special K3 surface with rank 2 lattice spanned by ",TEX///$H,C$///},
           {{"a sequence of two integers ",TT"(a,b)"}}}, 
-Outputs => {Ideal => {"the defining homogeneous ideal of ", TEX///$S$///," embedded by the complete linear system ",TEX///$|a H + b C|$///}}, 
-EXAMPLE {"S = K3(5,2,-2)", "time S(1,0)", "time S(2,1)"}, 
-SeeAlso => {(map,K3surface,ZZ,ZZ),(ideals,K3surface)}} 
+Outputs => {EmbeddedProjectiveVariety => {"the embedding of ", TEX///$S$///," by the complete linear system ",TEX///$|a H + b C|$///}}, 
+EXAMPLE {"S = K3(5,2,-2)", "S(1,0)", "S(2,1)"}, 
+SeeAlso => {(map,K3surface,ZZ,ZZ),(vars,K3surface)}} 
 
 document {Key => {(map,K3surface,ZZ,ZZ)}, 
 Headline => "defining map of a special K3 surface", 
@@ -718,17 +666,16 @@ SeeAlso => {(symbol SPACE,K3surface,Sequence)}}
 
 undocumented {(net,K3surface)}
 
-document {Key => {ideals,(ideals,K3surface)}, 
-Headline => "corresponding ideals", 
-Usage => "ideals S", 
+document {Key => {(vars,K3surface)}, 
+Headline => "corresponding varieties", 
+Usage => "vars S", 
 Inputs => {"S" => K3surface => {"a special K3 surface with rank 2 lattice spanned by ",TEX///$H,C$///}}, 
-Outputs => {Ideal => {"the ideal of the special curve ",TEX///$C$///," contained in ",TEX///$S$///,", regarding ",TEX///$S$///," as embedded by ",TEX///$|H|$///},
-            Ideal => {"the ideal of ",TEX///$S$///," as a surface embedded by ",TEX///$|H|$///}},
+Outputs => {EmbeddedProjectiveVariety => {"the special curve ",TEX///$C$///," contained in ",TEX///$S$///,", regarding ",TEX///$S$///," as embedded by ",TEX///$|H|$///},
+            EmbeddedProjectiveVariety => {"the surface ",TEX///$S$///," embedded by ",TEX///$|H|$///}},
 EXAMPLE {
 "S = K3(5,2,-2)",
-"(idC,idS) = ideals S",
-"? idC",
-"? idS"},
+"first vars S",
+"last vars S"},
 SeeAlso => {(symbol SPACE,K3surface,Sequence)}} 
 
 -- Tests --
@@ -739,11 +686,11 @@ K = ZZ/333331;
 for g in {3,4,5,6,7,8,9,10,12} do (
     <<"g = "<<g<<endl;
     time (X,p) = randomPointedMukaiThreefold(g,CoefficientRing=>K);
-    assert(isPolynomialRing ring X and coefficientRing ring X === K and numgens ring X == g+2);
-    assert isSubset(X,p);
-    assert (?p == "one-point scheme in PP^"|toString(g+1));
-    assert(dim X -1 == 3);
-    assert((genera X)_2 == g);
+    assert(coefficientRing ring X === K and dim ambient X == g+1);
+    assert isSubset(p,X);
+    assert (? ideal p == "one-point scheme in PP^"|toString(g+1));
+    assert(dim X == 3);
+    assert(sectionalGenus X == g);
     assert(degree X == 2*g-2);
 );
 ///
@@ -755,12 +702,130 @@ setRandomSeed 123456789
 for g in {3,4,5,6,7,8,9,10,12} do (
     <<"g = "<<g<<endl;
     time (X,L) = randomMukaiThreefoldContainingLine(g,CoefficientRing=>K);
-    assert(isPolynomialRing ring X and coefficientRing ring X === K and numgens ring X == g+2);
-    assert isSubset(X,L);
-    assert (?L == "line in PP^"|toString(g+1));
-    assert(dim X -1 == 3);
-    assert((genera X)_2 == g);
+    assert(coefficientRing ring X === K and dim ambient X == g+1);
+    assert isSubset(L,X);
+    assert (? ideal L == "line in PP^"|toString(g+1));
+    assert(dim X == 3);
+    assert(sectionalGenus X == g);
     assert(degree X == 2*g-2);
 );
 ///
+
+TEST ///
+for g from 3 to 12 do (
+    <<"(g,d,n) = "<<(g,2,-2)<<endl;
+    time S = K3(g,2,-2);
+    T = S#"surface";
+    C = S#"curve";
+    L = S#"lattice";
+    assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
+    assert(dim C == 1 and degree C == 2 and sectionalGenus C == 0 and isSubset(C,T));
+    assert(L == matrix{{2*g-2,2},{2,-2}});
+);
+///
+
+TEST ///
+for g in {3,4,5,6,7,8,9} do (
+    <<"(g,d,n) = "<<(g,1,-2)<<endl;
+    time S = K3(g,1,-2);
+    T = S#"surface";
+    C = S#"curve";
+    L = S#"lattice";
+    assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
+    assert(dim C == 1 and degree C == 1 and sectionalGenus C == 0 and isSubset(C,T));
+    assert(L == matrix{{2*g-2,1},{1,-2}}); 
+);
+///
+
+TEST ///
+setRandomSeed 123456789;
+for g in {10,12} do (
+    <<"(g,d,n) = "<<(g,1,-2)<<endl;
+    time S = K3(g,1,-2);
+    T = S#"surface";
+    C = S#"curve";
+    L = S#"lattice";
+    assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
+    assert(dim C == 1 and degree C == 1 and sectionalGenus C == 0 and isSubset(C,T));
+    assert(L == matrix{{2*g-2,1},{1,-2}}); 
+);
+///
+
+TEST ///
+for e in 
+select({3,4,5} ** toList(3..8),e -> ((g,d) = toSequence e; (member(g,{3,4,5}) and d >= 3) and (g != 5 or d <= 8) and (g != 4 or d <= 6) and (g != 3 or d <= 8)))
+do (
+    (g,d) := toSequence e;
+    <<"(g,d,n) = "<<(g,d,-2)<<endl;
+    time S = K3(g,d,-2);
+    T = S#"surface";
+    C = S#"curve";
+    L = S#"lattice";
+    assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
+    assert(dim C == 1 and degree C == d and sectionalGenus C == 0 and isSubset(C,T));
+    assert(L == matrix{{2*g-2,d},{d,-2}});   
+);
+///
+
+TEST ///
+for e in 
+select({3,4,5} ** toList(3..9),e -> ((g,d) = toSequence e; (member(g,{3,4,5}) and member(d,{3,4,5,6,7,8,9})) and (g != 5 or d <= 9) and (g != 4 or d <= 7) and (g != 3 or d <= 8)))
+do (
+    (g,d) := toSequence e;
+    <<"(g,d,n) = "<<(g,d,0)<<endl;
+    time S = K3(g,d,0);
+    T = S#"surface";
+    C = S#"curve";
+    L = S#"lattice";
+    assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
+    assert(dim C == 1 and degree C == d and sectionalGenus C == 1 and isSubset(C,T));
+    assert(L == matrix{{2*g-2,d},{d,0}});    
+);
+///
+
+TEST ///
+for g in {3,4,5,6,7,8,9,10,12} do (
+    <<"(g,d,n) = "<<(g,0,-2)<<endl;
+    time S = K3(g,0,-2);
+    T = S#"surface";
+    C = S#"curve";
+    L = S#"lattice";
+    assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
+    assert(dim C == 0 and degree C == 1 and isSubset(C,T) and dim tangentSpace(T,C) > 2);
+    assert(L == matrix{{2*g-2,0},{0,-2}});       
+);
+///
+
+TEST ///
+for g in {3,4,5,6,7,8,9,10,12} do (<<"g = "<<g<<endl; time K3 g); 
+///;
+
+TEST ///
+K3 11 
+///
+
+end;
+
+TEST ///
+K3 20
+///
+
+TEST ///
+K3 22
+///
+
+-*
+i3 : check K3s -- (Fri 17 Sep 12:02:49 CEST 2021)
+ -- capturing check(0, "K3s")                                                -- 163.618 seconds elapsed
+ -- capturing check(1, "K3s")                                                -- 163.798 seconds elapsed
+ -- capturing check(2, "K3s")                                                -- 522.761 seconds elapsed
+ -- capturing check(3, "K3s")                                                -- 7.96134 seconds elapsed
+ -- capturing check(4, "K3s")                                                -- 180.69 seconds elapsed
+ -- capturing check(5, "K3s")                                                -- 6.94782 seconds elapsed
+ -- capturing check(6, "K3s")                                                -- 11.838 seconds elapsed
+ -- capturing check(7, "K3s")                                                -- 187.324 seconds elapsed
+ -- capturing check(8, "K3s")                                                -- 200.918 seconds elapsed
+ -- capturing check(9, "K3s")                                                -- 377.381 seconds elapsed
+*-
+
 
