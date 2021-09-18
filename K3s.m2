@@ -25,7 +25,7 @@ if SpecialFanoFourfolds.Options.Version < "2.3" then (
     error "required SpecialFanoFourfolds package version 2.3 or newer";
 );
 
-export{"K3","K3surface","project","trigonalK3"}
+export{"K3","K3surface","project","mukaiModel","trigonalK3"}
 
 debug SpecialFanoFourfolds;
 needsPackage "Truncations";
@@ -574,6 +574,64 @@ randomRationalCurve (ZZ,ZZ) := o -> (d,n) -> (
     f C
 );
 
+mukaiModel = method(Options => {CoefficientRing => ZZ/65521});
+mukaiModel ZZ := o -> g -> (
+    K := o.CoefficientRing;
+    if not member(g,{6,7,8,9,10,12}) then error "expected the genus to be in the set {6,7,8,9,10,12}";
+    local psi; local X;
+    if g == 6 then (
+        psi = rationalMap(image(Var sub(ideal(PP_K[1,1,1]),ring PP_K^6) << PP_K^7),2,Dominant=>true);
+        X = image psi;
+        X.cache#"rationalParametrization" = psi;
+        assert(dim X == 7 and codim X == 3 and degree X == 5 and sectionalGenus X == 1);
+        return X;
+    );
+    if g == 7 then ( -- See [Zak - Tangents and secants of algebraic varieties - Thm. 3.8 (case 5), p. 67.]
+        psi = rationalMap(image(Var Grass(1,4,K,Variable=>"t") << PP_K^10),2,Dominant=>true);
+        X = image psi;
+        X.cache#"rationalParametrization" = psi;
+        assert(dim X == 10 and codim X == 5 and degree X == 12 and sectionalGenus X == 7);
+        return X;
+    );
+    if g == 8 then (-- See [Zak - Tangents and secants of algebraic varieties - Thm. 3.8 (case 3), p. 67.]
+        psi = rationalMap(image(PP_K[1,1,1,1] << PP_K^8),2,Dominant=>true);
+        X = image psi;
+        X.cache#"rationalParametrization" = psi;
+        assert(dim X == 8 and codim X == 6 and degree X == 14 and sectionalGenus X == 8);
+        return X;
+    );
+    if g == 9 then (
+        psi = rationalMap(image(PP_K^(2,2) << PP_K^6),3,2,Dominant=>true);
+        X = image psi;
+        X.cache#"rationalParametrization" = psi;
+        assert(dim X == 6 and codim X == 7 and degree X == 16 and sectionalGenus X == 9);
+        return X;
+    );
+    if g == 10 then ( -- p. 4 of [Kapustka and Ranestad - Vector Bundles On Fano Varieties Of Genus Ten] 
+        w := gens ring PP_K^13;
+        M := matrix {{0,-w_5,w_4,w_6,w_7,w_8,w_0},
+                     {w_5,0,-w_3,w_12,w_13,w_9,w_1},
+                     {-w_4,w_3,0,w_10,w_11,-w_6-w_13,w_2},
+                     {-w_6,-w_12,-w_10,0,w_2,-w_1,w_3},
+                     {-w_7,-w_13,-w_11,-w_2,0,w_0,w_4},
+                     {-w_8,-w_9,w_6+w_13,w_1,-w_0,0,w_5},
+                     {-w_0,-w_1,-w_2,-w_3,-w_4,-w_5,0}};
+        X = projectiveVariety pfaffians(4,M);
+        assert(dim X == 5 and codim X == 8 and degree X == 18 and sectionalGenus X == 10);
+        return X;
+    );
+    if g == 12 then ( -- see also pointLineAndConicOnMukaiThreefoldOfGenus12
+        C := PP_K^(1,6);
+        C = (rationalMap linearSpan{point ambient C,point ambient C}) C;
+        psi = rationalMap(C_(random(2,C)),5,2,Dominant=>2);
+        psi#"isDominant" = true;
+        X = target psi;
+        X.cache#"rationalParametrization" = psi;
+        assert(dim X == 3 and codim X == 10 and degree X == 22 and sectionalGenus X == 12);
+        return X;
+    );
+);
+
 
 beginDocumentation() 
 
@@ -688,6 +746,13 @@ Inputs => {"g" => ZZ =>{"the genus"}},
 Outputs => {EmbeddedProjectiveVariety => {"a random trigonal K3 surface of genus ", TEX///$g$///," and degree ",TEX///$2g-2$///," in ",TEX///$\mathbb{P}^g$///}}, 
 PARA{"This implements the construction given in the paper ",EM "A remark on the generalized franchetta conjecture for K3 surfaces",", by Beauville."},
 EXAMPLE {"S = trigonalK3 11", "f = map S;", "image f", "U = source f", "multirationalMap first projections source f"}} 
+
+document {Key => {mukaiModel,(mukaiModel,ZZ),[mukaiModel,CoefficientRing]}, 
+Headline => "Mukai models", 
+Usage => "mukaiModel g", 
+Inputs => {"g" => ZZ =>{"the genus"}}, 
+Outputs => {EmbeddedProjectiveVariety => {"the Mukai model of genus ",TEX///$g$///," and degree ",TEX///$2g-2$///}},
+EXAMPLE {"X = mukaiModel 9;", "(degree X, sectionalGenus X)", "parametrize X"}} 
 
 -- Tests --
 
