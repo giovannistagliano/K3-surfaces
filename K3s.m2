@@ -3,8 +3,8 @@ if version#"VERSION" < "1.18" then error "this package requires Macaulay2 versio
 
 newPackage(
     "K3s",
-    Version => "0.5", 
-    Date => "September 17, 2021",
+    Version => "0.6", 
+    Date => "September 19, 2021",
     Authors => {{Name => "Michael Hoff", 
                  Email => "hahn@math.uni-sb.de"},
                 {Name => "Giovanni Staglianò", 
@@ -25,38 +25,40 @@ if SpecialFanoFourfolds.Options.Version < "2.3" then (
     error "required SpecialFanoFourfolds package version 2.3 or newer";
 );
 
-export{"K3","K3surface","project","mukaiModel","trigonalK3"}
+export{"K3","LatticePolarizedK3surface","EmbeddedK3surface","project","mukaiModel","trigonalK3"}
 
 debug SpecialFanoFourfolds;
 needsPackage "Truncations";
 needsPackage "MinimalPrimes";
 
-K3surface = new Type of HashTable;
+LatticePolarizedK3surface = new Type of HashTable;
 
-K3surface.synonym = "K3 surface";
+LatticePolarizedK3surface.synonym = "K3 surface";
 
-EmbeddedK3Surface = new Type of EmbeddedProjectiveVariety;
+EmbeddedK3surface = new Type of EmbeddedProjectiveVariety;
 
-net K3surface := S -> (
+EmbeddedK3surface.synonym = "embedded K3 surface";
+
+net LatticePolarizedK3surface := S -> (
     M := S#"lattice";
     d := M_(0,1);
     n := M_(1,1);
     g := lift((M_(0,0) + 2)/2,ZZ);
-    w := "special K3 surface with rank 2 lattice defined by the intersection matrix: "|net(M);
+    w := "K3 surface with rank 2 lattice defined by the intersection matrix: "|net(M);
     local g'; local c; local a; local b; local g0; local d0; local n0;
     w = w || concatenate for s in select(fewPossibilities,l -> take(l,{4,6}) == (g,d,n)) list ( 
     (g',c,a,b,g0,d0,n0) = s;
-    "-- "|toString(a,b)|": K3 surface of degree "|toString(2*g'-2)|" and genus "|toString(g')|" containing "|(if n == 0 then "elliptic" else "rational")|" curve of degree "|toString(c)|" "|(if isAdmissible(2*g'-2) then "(cubic fourfold) " else "")|(if isAdmissibleGM(2*g'-2) then "(GM fourfold) " else "")|newline
+    "-- "|toString(a,b)|": K3 surface of genus "|toString(g')|" and degree "|toString(2*g'-2)|" containing "|(if n == 0 then "elliptic" else "rational")|" curve of degree "|toString(c)|" "|(if isAdmissible(2*g'-2) then "(cubic fourfold) " else "")|(if isAdmissibleGM(2*g'-2) then "(GM fourfold) " else "")|newline
     )
 );
 
-? EmbeddedK3Surface := S -> "K3 surface of genus "|toString(genus S)|" and degree "|toString(degree S)|" in PP^"|toString(dim ambient S);
+? EmbeddedK3surface := S -> "K3 surface of genus "|toString(genus S)|" and degree "|toString(degree S)|" in PP^"|toString(dim ambient S);
 
-K3surface#{Standard,AfterPrint} = K3surface#{Standard,AfterNoPrint} = S -> (
-    << endl << concatenate(interpreterDepth:"o") << lineNumber << " : " << "K3 surface" << endl;
+LatticePolarizedK3surface#{Standard,AfterPrint} = LatticePolarizedK3surface#{Standard,AfterNoPrint} = S -> (
+    << endl << concatenate(interpreterDepth:"o") << lineNumber << " : " << "Lattice-polarized K3 surface" << endl;
 );
 
-map (K3surface,ZZ,ZZ) := o -> (S,a,b) -> (
+map (LatticePolarizedK3surface,ZZ,ZZ) := o -> (S,a,b) -> (
     if S.cache#?("map",a,b) then return S.cache#("map",a,b);
     M := S#"lattice";
     d := M_(0,1);
@@ -71,11 +73,11 @@ map (K3surface,ZZ,ZZ) := o -> (S,a,b) -> (
     S.cache#("map",a,b) = phi
 );
 
-map EmbeddedK3Surface := o -> S -> S.cache#"mapK3";
+map EmbeddedK3surface := o -> S -> S.cache#"mapK3";
 
-coefficientRing K3surface := S -> coefficientRing S#"surface";
+coefficientRing LatticePolarizedK3surface := S -> coefficientRing S#"surface";
 
-genus (K3surface,ZZ,ZZ) := (S,a,b) -> (
+genus (LatticePolarizedK3surface,ZZ,ZZ) := (S,a,b) -> (
     M := S#"lattice";
     d := M_(0,1);
     n := M_(1,1);
@@ -83,30 +85,28 @@ genus (K3surface,ZZ,ZZ) := (S,a,b) -> (
     lift((a^2*(2*g-2) + 2*a*b*d + b^2*n + 2)/2,ZZ)
 );
 
-genus EmbeddedK3Surface := S -> sectionalGenus S;
+genus EmbeddedK3surface := S -> sectionalGenus S;
 
-degree (K3surface,ZZ,ZZ) := (S,a,b) -> 2 * genus(S,a,b) - 2;
+degree (LatticePolarizedK3surface,ZZ,ZZ) := (S,a,b) -> 2 * genus(S,a,b) - 2;
 
-K3surface Sequence := (S,ab) -> (
+LatticePolarizedK3surface Sequence := (S,ab) -> (
     if not(#ab == 2 and instance(first ab,ZZ) and instance(last ab,ZZ)) then error "expected a sequence of two integers";
     (a,b) := ab;
+    if S.cache#?("var",a,b) then return S.cache#("var",a,b);    
     f := map(S,a,b);
-    if f#"image" === null and char coefficientRing S <= 65521 and genus(S,1,0) > 3 then (
-        f = toRationalMap f;
-        image(f,"F4");
-        f = multirationalMap f;
-        S.cache#("map",a,b) = f;
-        assert(f#"image" =!= null);
-    );
-    if degrees image f =!= {({2},binomial(genus(S,a,b)-2,2))} then <<"--warning: the degrees for the generators are not as expected"<<endl;
-    image f
+    if f#"image" === null and char coefficientRing S <= 65521 and genus(S,1,0) > 3 then f#"image" = Var image(toRationalMap f,"F4");
+    -- if degrees image f =!= {({2},binomial(genus(S,a,b)-2,2))} then <<"--warning: the degrees for the generators are not as expected"<<endl;
+    T := new EmbeddedK3surface from image f;
+    f#"image" = T;
+    T.cache#"mapK3" = f;
+    S.cache#("var",a,b) = T
 );
 
-Var K3surface := o -> S -> S#"surface";
+Var LatticePolarizedK3surface := o -> S -> S#"surface";
 
-vars K3surface := S -> (S#"curve",Var S);
+vars LatticePolarizedK3surface := S -> (S#"curve",Var S);
 
-vars EmbeddedK3Surface := S -> (S.cache#"pointK3",S);
+-- vars EmbeddedK3surface := S -> (S.cache#"pointK3",S);
 
 K3 = method(Options => {CoefficientRing => ZZ/65521, Verbose => true});
 
@@ -114,9 +114,10 @@ K3 ZZ := o -> g -> (
     K := o.CoefficientRing;
     local X; local p; local Ass;
     makegeneralK3 := (f,p,g) -> (
-        K3surf := new EmbeddedK3Surface from image f;
+        K3surf := new EmbeddedK3surface from image f;
         assert(sectionalGenus K3surf == g and degree K3surf == 2*g-2 and dim ambient K3surf == g and dim p == 0 and isSubset(p,K3surf));
         if g != 22 then assert(degree p == 1);
+        f#"image" = K3surf;
         K3surf.cache#"mapK3" = f;
         K3surf.cache#"pointK3" = p;
         K3surf
@@ -168,7 +169,7 @@ K3 (ZZ,ZZ,ZZ) := o -> (g,d,n) -> (
     found := false;
     if g >= 3 and g <= 12 and d == 2 and n == -2 then (
         found = true;
-        (T,C) = randomK3surfaceContainingConic(g,CoefficientRing=>K);
+        (T,C) = randomLatticePolarizedK3surfaceContainingConic(g,CoefficientRing=>K);
         H = if g != 10 and g != 12 then Var ideal first gens ring ambient T else random(1,0_T);
     );
     if member(g,{3,4,5,6,7,8,9,10,12}) and d == 1 and n == -2 then ( 
@@ -201,7 +202,7 @@ K3 (ZZ,ZZ,ZZ) := o -> (g,d,n) -> (
     if not found then error ("no procedure found to construct K3 surface with rank 2 lattice defined by the "|toString(matrix{{2*g-2,d},{d,n}}));
     W := new CacheTable;
     W#"hyperplane" = H;
-    new K3surface from {
+    new LatticePolarizedK3surface from {
         symbol cache => W,
         "surface" => T,
         "curve" => C,
@@ -209,7 +210,7 @@ K3 (ZZ,ZZ,ZZ) := o -> (g,d,n) -> (
     }
 );
 
-trigonalK3 = method(Options => {CoefficientRing => ZZ/65521});
+trigonalK3 = method(TypicalValue => EmbeddedK3surface, Options => {CoefficientRing => ZZ/65521});
 trigonalK3 ZZ := o -> g -> (
     -- See [Beauville - A remark on the generalized franchetta conjecture for K3 surfaces]
     if g < 5 then <<"--warning: expected g >= 5"<<endl; 
@@ -221,12 +222,13 @@ trigonalK3 ZZ := o -> g -> (
     S := if n == 2 then random({2,3},0_P) else 
          if n == 3 then random({{1,1},{1,3}},0_P) else 
          if n == 4 then random({{0,3},{1,1},{1,1}},0_P);
-    f := rationalMap((0_P)%S,{a,1},Dominant=>true);
+    f := rationalMap((0_P)%S,{a,1});
+    T := new EmbeddedK3surface from image f;
+    f#"image" = T;    
     assert(dim ambient target f == g and dim image f == 2 and degree image f == 2*g-2 and sectionalGenus image f == g);
     -- <<"-- got: "<<expression f<<endl;
     -- <<"-- degrees of image: "<<(concatenate for l in sort pairs tally flatten degrees ideal image f list (toString first l)|"^"|(toString(last l)|" "))<<"(expected degrees: 2^"<<binomial(g-2,2)<<")"<<endl;
-    T := new EmbeddedK3Surface from image f;
-    T.cache#"mapK3" = check rationalMap(f,T);
+    T.cache#"mapK3" = f;
     T
 );
 
@@ -396,8 +398,8 @@ randomMukaiThreefoldContainingLine ZZ := o -> g -> (
     error "the genus has to belong to the set {3,...,10,12}";
 );
 
-randomK3surfaceContainingConic = method(Options => {CoefficientRing => ZZ/65521});
-randomK3surfaceContainingConic ZZ := o -> g -> (
+randomLatticePolarizedK3surfaceContainingConic = method(Options => {CoefficientRing => ZZ/65521});
+randomLatticePolarizedK3surfaceContainingConic ZZ := o -> g -> (
     if not (g >= 3 and g <= 12) then error "expected integer between 3 and 12";
     local X; local T; local C; local p; local j;
     K := o.CoefficientRing;    
@@ -531,13 +533,35 @@ power0 (Ideal,ZZ) := (p,d) -> (
 );
 
 project = method();
-project (VisibleList,K3surface,ZZ,ZZ) := (L,S,a,b) -> (
+project (VisibleList,LatticePolarizedK3surface,ZZ,ZZ) := (L,S,a,b) -> (
    try assert(ring matrix{L} === ZZ and #L>0) else error "expected a list of integers";
+   E := invProjection(L,degree(S,a,b),genus(S,a,b),genus(S,a,b));
    phi := toRationalMap map(S,a,b);
    d := max flatten degrees ideal matrix phi;
    J := rationalMap(intersect apply(L,i -> power0(point source phi,i)),d);   
    f := rationalMap(intersect(ideal matrix phi,ideal matrix J),d);
-   if char coefficientRing S <= 65521 then Var image(f,"F4") else Var image f
+   X := if char coefficientRing S <= 65521 then Var image(f,"F4") else Var image f;
+   <<endl;
+   if E != (degree X,sectionalGenus X,dim ambient X) then <<"--warning: output is not as expected"<<endl else <<"-- (degree and genus are as expected)"<<endl;
+   X
+);
+
+invProjection = method();
+invProjection (VisibleList,ZZ,ZZ,ZZ) := (mm,d,g,N) -> (
+   expNumHyp := (d0,g0,r0,J) -> (
+       t := local t;
+       R := QQ[t];
+       hP := (d,g) -> (1/2)*d*t^2 + ((1/2)*d+1-g)*t+2;
+       max(binomial(r0+J,J) - sub(hP(d0,g0),t=>J),0)
+   );
+   mm = deepSplice mm; 
+   <<"-- *** simulation ***"<<endl;
+   <<"-- surface of degree "<<d<<" and sectional genus "<<g<<" in PP^"<<N<<" (quadrics: "<<expNumHyp(d,g,N,2)<<", cubics: "<<expNumHyp(d,g,N,3)<<")"<<endl;
+   for m in mm do (
+       (d,g,N) = (d - m^2,g - binomial(m,2),N - binomial(m+1,2)); 
+       <<"-- surface of degree "<<d<<" and sectional genus "<<g<<" in PP^"<<N<<" (quadrics: "<<expNumHyp(d,g,N,2)<<", cubics: "<<expNumHyp(d,g,N,3)<<")"<<endl;
+   );
+   (d,g,N)
 );
 
 randomEllipticNormalCurve = method(Options => {CoefficientRing => ZZ/65521});
@@ -638,112 +662,116 @@ beginDocumentation()
 document {Key => K3s, 
 Headline => "A package for constructing explicit examples of K3 surfaces"} 
 
-document {Key => {K3surface}, 
-Headline => "the class of all (polarized) K3 surfaces",
-SeeAlso => {K3}}
+document {Key => {LatticePolarizedK3surface}, 
+Headline => "the class of all lattice-polarized K3 surfaces",
+SeeAlso => {K3,EmbeddedK3surface}}
+
+document {Key => {EmbeddedK3surface}, 
+Headline => "the class of all embedded K3 surfaces",
+SeeAlso => {LatticePolarizedK3surface,(symbol SPACE,LatticePolarizedK3surface,Sequence)}}
 
 document {Key => {K3,(K3,ZZ,ZZ,ZZ),[K3,Verbose],[K3,CoefficientRing]}, 
-Headline => "make a special K3 surface",
+Headline => "make a lattice-polarized K3 surface",
 Usage => "K3(d,g,n)
 K3(d,g,n,CoefficientRing=>K)", 
 Inputs => {"d" => ZZ,"g" => ZZ,"n" => ZZ}, 
-Outputs => {{"a ",TO2{K3surface,"K3 surface"}," defined over ",TEX///$K$///," with rank 2 lattice defined by the intersection matrix ",TEX///$\begin{pmatrix} 2g-2 & d \\ d & n \end{pmatrix}$///}}, 
+Outputs => {{"a ",TO2{LatticePolarizedK3surface,"K3 surface"}," defined over ",TEX///$K$///," with rank 2 lattice defined by the intersection matrix ",TEX///$\begin{pmatrix} 2g-2 & d \\ d & n \end{pmatrix}$///}}, 
 EXAMPLE {"K3(6,1,-2)"},
-SeeAlso => {(K3,ZZ),(K3,ZZ,Nothing),(symbol SPACE,K3surface,Sequence)}}
+SeeAlso => {(K3,ZZ),(K3,ZZ,Nothing),(symbol SPACE,LatticePolarizedK3surface,Sequence)}}
 
 document {Key => {(K3,ZZ,Nothing)}, 
 Headline => "find function to construct K3 surface of given genus", 
 Usage => "K3(G,)", 
 Inputs => { ZZ => "G" => {"the genus"}}, 
-Outputs => {List => {"a list of terns ",TT"(d,g,n)"," such that (",TO2{(K3,ZZ,ZZ,ZZ),TT"(K3(d,g,n)"},")",TO2{(symbol SPACE,K3surface,Sequence),"(a,b)"}," is a K3 surface of genus ",TT"G",", for some integers ",TT"a,b"}}, 
+Outputs => {List => {"a list of terns ",TT"(d,g,n)"," such that (",TO2{(K3,ZZ,ZZ,ZZ),TT"(K3(d,g,n)"},")",TO2{(symbol SPACE,LatticePolarizedK3surface,Sequence),"(a,b)"}," is a K3 surface of genus ",TT"G",", for some integers ",TT"a,b"}}, 
 EXAMPLE {"K3(11,)", "S = K3(5,5,-2)", "S(1,2)", "(map(S,1,2)) first vars S"}, 
-SeeAlso => {(K3,ZZ,ZZ,ZZ),(symbol SPACE,K3surface,Sequence)}} 
+SeeAlso => {(K3,ZZ,ZZ,ZZ),(symbol SPACE,LatticePolarizedK3surface,Sequence)}} 
 
 document {Key => {(K3,ZZ)}, 
 Headline => "make a general K3 surface",
 Usage => "K3 g
 K3(g,CoefficientRing=>K)",
 Inputs => {"g" => ZZ}, 
-Outputs => {{"a general K3 surface defined over ",TEX///$K$///," of genus ",TEX///$g$///," in ",TEX///$\mathbb{P}^g$///}}, 
+Outputs => {EmbeddedK3surface => {"a general K3 surface defined over ",TEX///$K$///," of genus ",TEX///$g$///," in ",TEX///$\mathbb{P}^g$///}}, 
 EXAMPLE {"K3 9"},
 SeeAlso => {(K3,ZZ,ZZ,ZZ)}}
 
-document {Key => {(genus,K3surface,ZZ,ZZ)}, 
+document {Key => {(genus,LatticePolarizedK3surface,ZZ,ZZ)}, 
 Headline => "genus of a K3 surface", 
 Usage => "genus(S,a,b)", 
-Inputs => {"S" => K3surface,
+Inputs => {"S" => LatticePolarizedK3surface,
            "a" => ZZ,
            "b" => ZZ}, 
 Outputs => {ZZ => {"the genus of ", TEX///$S$///," embedded by the complete linear system ",TEX///$|a H + b C|$///,", where ",TEX///$H,C$///," is the basis of the lattice associated to ",TEX///$S$///}}, 
 EXAMPLE {"S = K3(5,2,-2)", "genus(S,2,1)"}, 
-SeeAlso => {(degree,K3surface,ZZ,ZZ)}} 
+SeeAlso => {(degree,LatticePolarizedK3surface,ZZ,ZZ)}} 
 
-document {Key => {(degree,K3surface,ZZ,ZZ)}, 
+document {Key => {(degree,LatticePolarizedK3surface,ZZ,ZZ)}, 
 Headline => "degree of a K3 surface", 
 Usage => "degree(S,a,b)", 
-Inputs => {"S" => K3surface,
+Inputs => {"S" => LatticePolarizedK3surface,
            "a" => ZZ,
            "b" => ZZ}, 
 Outputs => {ZZ => {"the degree of ", TEX///$S$///," embedded by the complete linear system ",TEX///$|a H + b C|$///,", where ",TEX///$H,C$///," is the basis of the lattice associated to ",TEX///$S$///}}, 
 EXAMPLE {"S = K3(5,2,-2)", "degree(S,2,1)"}, 
-SeeAlso => {(genus,K3surface,ZZ,ZZ)}} 
+SeeAlso => {(genus,LatticePolarizedK3surface,ZZ,ZZ)}} 
 
-document {Key => {project,(project,VisibleList,K3surface,ZZ,ZZ)}, 
+document {Key => {project,(project,VisibleList,LatticePolarizedK3surface,ZZ,ZZ)}, 
 Headline => "project a K3 surface", 
 Usage => "project({i,j,k,...},S,a,b)", 
 Inputs => {VisibleList => {"a list ",TEX///$\{i,j,k,\ldots\}$///," of nonnegative integers"},
-           K3surface => "S" => {"a special K3 surface with rank 2 lattice spanned by ",TEX///$H,C$///},
+           LatticePolarizedK3surface => "S" => {"a lattice-polarized K3 surface with rank 2 lattice spanned by ",TEX///$H,C$///},
            ZZ => "a",
            ZZ => "b"}, 
 Outputs => {EmbeddedProjectiveVariety => {"the projection of ", TEX///$S$///," embedded by the complete linear system ",TEX///$|a H + b C|$///," from ",TEX///$i$///," random points of multiplicity 1, ",TEX///$j$///," random points of multiplicity 2, ",TEX///$k$///," random points of multiplicity 3, and so on until the last integer in the given list."}}, 
 EXAMPLE {"S = K3(8,2,-2)", "project({5,3,1},S,2,1); -- (5th + 3rd + simple)-projection of S(2,1)"}, 
-SeeAlso => {(symbol SPACE,K3surface,Sequence)}} 
+SeeAlso => {(symbol SPACE,LatticePolarizedK3surface,Sequence)}} 
 
-document {Key => {(coefficientRing,K3surface)}, 
+document {Key => {(coefficientRing,LatticePolarizedK3surface)}, 
 Headline => "coefficient ring of a K3 surface", 
 Usage => "coefficientRing S", 
-Inputs => {"S" => K3surface}, 
+Inputs => {"S" => LatticePolarizedK3surface}, 
 Outputs => {Ring => {"the coefficient ring of ", TEX///$S$///}}, 
 EXAMPLE {"K = ZZ/3331","S = K3(5,2,-2,CoefficientRing=>K)", "coefficientRing S"}} 
 
-document {Key => {(symbol SPACE,K3surface,Sequence)}, 
-Headline => "embedding of a K3 surface", 
+document {Key => {(symbol SPACE,LatticePolarizedK3surface,Sequence)}, 
+Headline => "image of the embedding of a K3 surface", 
 Usage => "S(a,b)", 
-Inputs => {"S" => K3surface => {"a special K3 surface with rank 2 lattice spanned by ",TEX///$H,C$///},
+Inputs => {"S" => LatticePolarizedK3surface => {"a lattice-polarized K3 surface with rank 2 lattice spanned by ",TEX///$H,C$///},
           {{"a sequence of two integers ",TT"(a,b)"}}}, 
-Outputs => {EmbeddedProjectiveVariety => {"the embedding of ", TEX///$S$///," by the complete linear system ",TEX///$|a H + b C|$///}}, 
+Outputs => {EmbeddedK3surface => {"the image of the embedding of ", TEX///$S$///," by the complete linear system ",TEX///$|a H + b C|$///}}, 
 EXAMPLE {"S = K3(5,2,-2)", "S(1,0)", "S(2,1)"}, 
-SeeAlso => {(map,K3surface,ZZ,ZZ),(vars,K3surface)}} 
+SeeAlso => {(map,LatticePolarizedK3surface,ZZ,ZZ)}} 
 
-document {Key => {(map,K3surface,ZZ,ZZ)}, 
-Headline => "defining map of a special K3 surface", 
+document {Key => {(map,LatticePolarizedK3surface,ZZ,ZZ)}, 
+Headline => "embedding of a K3 surface", 
 Usage => "map S", 
-Inputs => {"S" => K3surface,
+Inputs => {"S" => LatticePolarizedK3surface,
            "a" => ZZ,
            "b" => ZZ}, 
 Outputs => {{"the ",TO2{RationalMap,"birational morphism"}," defined by the complete linear system ",TEX///$|a H + b C|$///,", where ",TEX///$H,C$///," is the basis of the lattice associated to ",TEX///$S$///}}, 
-EXAMPLE {"S = K3(3,1,-2)", "f = map(S,2,1);", "isMorphism f", "degree f", "image f === S(2,1)"}, 
-SeeAlso => {(symbol SPACE,K3surface,Sequence)}} 
+EXAMPLE {"S = K3(3,1,-2)", "f = map(S,2,1);", "isMorphism f", "degree f", "image f == S(2,1)"}, 
+SeeAlso => {(symbol SPACE,LatticePolarizedK3surface,Sequence)}} 
 
-undocumented {(net,K3surface)}
+undocumented {(net,LatticePolarizedK3surface),(symbol ?,EmbeddedK3surface),(map,EmbeddedK3surface),(genus,EmbeddedK3surface)}
 
-document {Key => {(vars,K3surface)}, 
+document {Key => {(vars,LatticePolarizedK3surface)}, 
 Headline => "corresponding varieties", 
 Usage => "vars S", 
-Inputs => {"S" => K3surface => {"a special K3 surface with rank 2 lattice spanned by ",TEX///$H,C$///}}, 
+Inputs => {"S" => LatticePolarizedK3surface => {"a lattice-polarized K3 surface with rank 2 lattice spanned by ",TEX///$H,C$///}}, 
 Outputs => {EmbeddedProjectiveVariety => {"the special curve ",TEX///$C$///," contained in ",TEX///$S$///,", regarding ",TEX///$S$///," as embedded by ",TEX///$|H|$///},
             EmbeddedProjectiveVariety => {"the surface ",TEX///$S$///," embedded by ",TEX///$|H|$///}},
 EXAMPLE {
 "S = K3(5,2,-2)",
 "first vars S",
 "last vars S"},
-SeeAlso => {(symbol SPACE,K3surface,Sequence)}} 
+SeeAlso => {(symbol SPACE,LatticePolarizedK3surface,Sequence)}} 
 
 document {Key => {trigonalK3,(trigonalK3,ZZ),[trigonalK3,CoefficientRing]}, 
 Headline => "trigonal K3 surface", 
 Usage => "trigonalK3 g", 
 Inputs => {"g" => ZZ =>{"the genus"}}, 
-Outputs => {EmbeddedProjectiveVariety => {"a random trigonal K3 surface of genus ", TEX///$g$///," and degree ",TEX///$2g-2$///," in ",TEX///$\mathbb{P}^g$///}}, 
+Outputs => {EmbeddedK3surface => {"a random trigonal K3 surface of genus ", TEX///$g$///," and degree ",TEX///$2g-2$///," in ",TEX///$\mathbb{P}^g$///}}, 
 PARA{"This implements the construction given in the paper ",EM "A remark on the generalized franchetta conjecture for K3 surfaces",", by Beauville."},
 EXAMPLE {"S = trigonalK3 11", "f = map S;", "image f", "U = source f", "multirationalMap first projections source f"}} 
 
@@ -891,17 +919,17 @@ K3 22
 ///
 
 -*
-i3 : check K3s -- (Fri 17 Sep 12:02:49 CEST 2021)
- -- capturing check(0, "K3s")                                                -- 163.618 seconds elapsed
- -- capturing check(1, "K3s")                                                -- 163.798 seconds elapsed
- -- capturing check(2, "K3s")                                                -- 522.761 seconds elapsed
- -- capturing check(3, "K3s")                                                -- 7.96134 seconds elapsed
- -- capturing check(4, "K3s")                                                -- 180.69 seconds elapsed
- -- capturing check(5, "K3s")                                                -- 6.94782 seconds elapsed
- -- capturing check(6, "K3s")                                                -- 11.838 seconds elapsed
- -- capturing check(7, "K3s")                                                -- 187.324 seconds elapsed
- -- capturing check(8, "K3s")                                                -- 200.918 seconds elapsed
- -- capturing check(9, "K3s")                                                -- 377.381 seconds elapsed
+i2 : check K3s -- (Sun 19 Sep 19:38:19 CEST 2021)
+ -- capturing check(0, "K3s")                                                -- 153.544 seconds elapsed
+ -- capturing check(1, "K3s")                                                -- 158.334 seconds elapsed
+ -- capturing check(2, "K3s")                                                -- 507.99 seconds elapsed
+ -- capturing check(3, "K3s")                                                -- 8.08465 seconds elapsed
+ -- capturing check(4, "K3s")                                                -- 180.602 seconds elapsed
+ -- capturing check(5, "K3s")                                                -- 6.05575 seconds elapsed
+ -- capturing check(6, "K3s")                                                -- 11.866 seconds elapsed
+ -- capturing check(7, "K3s")                                                -- 186.685 seconds elapsed
+ -- capturing check(8, "K3s")                                                -- 190.407 seconds elapsed
+ -- capturing check(9, "K3s")                                                -- 384.407 seconds elapsed
 *-
 
 
