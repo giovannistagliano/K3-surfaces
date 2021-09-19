@@ -169,7 +169,7 @@ K3 (ZZ,ZZ,ZZ) := o -> (g,d,n) -> (
     found := false;
     if g >= 3 and g <= 12 and d == 2 and n == -2 then (
         found = true;
-        (T,C) = randomLatticePolarizedK3surfaceContainingConic(g,CoefficientRing=>K);
+        (T,C) = randomK3surfaceContainingConic(g,CoefficientRing=>K);
         H = if g != 10 and g != 12 then Var ideal first gens ring ambient T else random(1,0_T);
     );
     if member(g,{3,4,5,6,7,8,9,10,12}) and d == 1 and n == -2 then ( 
@@ -398,8 +398,8 @@ randomMukaiThreefoldContainingLine ZZ := o -> g -> (
     error "the genus has to belong to the set {3,...,10,12}";
 );
 
-randomLatticePolarizedK3surfaceContainingConic = method(Options => {CoefficientRing => ZZ/65521});
-randomLatticePolarizedK3surfaceContainingConic ZZ := o -> g -> (
+randomK3surfaceContainingConic = method(Options => {CoefficientRing => ZZ/65521});
+randomK3surfaceContainingConic ZZ := o -> g -> (
     if not (g >= 3 and g <= 12) then error "expected integer between 3 and 12";
     local X; local T; local C; local p; local j;
     K := o.CoefficientRing;    
