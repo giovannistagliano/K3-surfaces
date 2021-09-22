@@ -99,6 +99,7 @@ LatticePolarizedK3surface Sequence := (S,ab) -> (
     if f#"image" === null and char coefficientRing S <= 65521 and genus(S,1,0) > 3 then f#"image" = Var image(toRationalMap f,"F4");
     T := new EmbeddedK3surface from image f;
     -- (???) this fixes a bug in conversion of output to net (???)
+    T#"dimVariety" = 2;
     T.cache#"sectionalGenus" = genus(S,a,b);
     -- if degrees T =!= {({2},binomial(genus(T)-2,2))} then <<"--warning: the degrees for the generators are not as expected"<<endl;
     f#"image" = T;
