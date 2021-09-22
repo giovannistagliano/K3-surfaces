@@ -3,8 +3,8 @@ if version#"VERSION" < "1.18" then error "this package requires Macaulay2 versio
 
 newPackage(
     "K3s",
-    Version => "0.6", 
-    Date => "September 19, 2021",
+    Version => "0.7", 
+    Date => "September 22, 2021",
     Authors => {{Name => "Michael Hoff", 
                  Email => "hahn@math.uni-sb.de"},
                 {Name => "Giovanni Staglianò", 
@@ -89,14 +89,18 @@ genus EmbeddedK3surface := S -> sectionalGenus S;
 
 degree (LatticePolarizedK3surface,ZZ,ZZ) := (S,a,b) -> 2 * genus(S,a,b) - 2;
 
+degree EmbeddedK3surface := S -> 2 * genus(S) - 2;
+
 LatticePolarizedK3surface Sequence := (S,ab) -> (
     if not(#ab == 2 and instance(first ab,ZZ) and instance(last ab,ZZ)) then error "expected a sequence of two integers";
     (a,b) := ab;
     if S.cache#?("var",a,b) then return S.cache#("var",a,b);    
     f := map(S,a,b);
     if f#"image" === null and char coefficientRing S <= 65521 and genus(S,1,0) > 3 then f#"image" = Var image(toRationalMap f,"F4");
-    -- if degrees image f =!= {({2},binomial(genus(S,a,b)-2,2))} then <<"--warning: the degrees for the generators are not as expected"<<endl;
     T := new EmbeddedK3surface from image f;
+    -- (???) this fixes a bug in conversion of output to net (???)
+    T.cache#"sectionalGenus" = genus(S,a,b);
+    -- if degrees T =!= {({2},binomial(genus(T)-2,2))} then <<"--warning: the degrees for the generators are not as expected"<<endl;
     f#"image" = T;
     T.cache#"mapK3" = f;
     S.cache#("var",a,b) = T
