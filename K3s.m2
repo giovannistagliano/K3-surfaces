@@ -888,7 +888,7 @@ SeeAlso => {(map,LatticePolarizedK3surface,ZZ,ZZ)}}
 
 document {Key => {(map,LatticePolarizedK3surface,ZZ,ZZ),(map,EmbeddedK3surface,ZZ,ZZ)}, 
 Headline => "embedding of a K3 surface", 
-Usage => "map S", 
+Usage => "map(S,a,b)", 
 Inputs => {"S" => LatticePolarizedK3surface,
            "a" => ZZ,
            "b" => ZZ}, 
@@ -902,7 +902,7 @@ document {Key => {trigonalK3,(trigonalK3,ZZ),[trigonalK3,CoefficientRing]},
 Headline => "trigonal K3 surface", 
 Usage => "trigonalK3 g", 
 Inputs => {"g" => ZZ =>{"the genus"}}, 
-Outputs => {LatticePolarizedK3surface => {"a random trigonal K3 surface of genus ", TEX///$g$///," and degree ",TEX///$2g-2$///," in ",TEX///$\mathbb{P}^g$///}}, 
+Outputs => {LatticePolarizedK3surface => {"a random trigonal K3 surface of genus ", TEX///$g$///}}, 
 PARA{"See also the paper ",EM "A remark on the generalized franchetta conjecture for K3 surfaces",", by Beauville."},
 EXAMPLE {"S = trigonalK3 11", "S' = S(1,0);", "map(S',0,1)"},
 SeeAlso => {(K3,ZZ,ZZ,ZZ),tetragonalK3,pentagonalK3}}
@@ -911,7 +911,7 @@ document {Key => {tetragonalK3,(tetragonalK3,ZZ),[tetragonalK3,CoefficientRing]}
 Headline => "tetragonal K3 surface", 
 Usage => "tetragonalK3 g", 
 Inputs => {"g" => ZZ =>{"the genus"}}, 
-Outputs => {LatticePolarizedK3surface => {"a random tetragonal K3 surface of genus ", TEX///$g$///," and degree ",TEX///$2g-2$///," in ",TEX///$\mathbb{P}^g$///}}, 
+Outputs => {LatticePolarizedK3surface => {"a random tetragonal K3 surface of genus ", TEX///$g$///}}, 
 EXAMPLE {"S = tetragonalK3 11", "S' = S(1,0);", "map(S',0,1)"},
 SeeAlso => {(K3,ZZ,ZZ,ZZ),trigonalK3,pentagonalK3}}
 
@@ -919,7 +919,7 @@ document {Key => {pentagonalK3,(pentagonalK3,ZZ),[pentagonalK3,CoefficientRing]}
 Headline => "pentagonal K3 surface", 
 Usage => "pentagonalK3 g", 
 Inputs => {"g" => ZZ =>{"the genus"}}, 
-Outputs => {LatticePolarizedK3surface => {"a random pentagonal K3 surface of genus ", TEX///$g$///," and degree ",TEX///$2g-2$///," in ",TEX///$\mathbb{P}^g$///}}, 
+Outputs => {LatticePolarizedK3surface => {"a random pentagonal K3 surface of genus ", TEX///$g$///}}, 
 EXAMPLE {"S = pentagonalK3 11", "S' = S(1,0);", "map(S',0,1)"},
 SeeAlso => {(K3,ZZ,ZZ,ZZ),trigonalK3,tetragonalK3}}
 
