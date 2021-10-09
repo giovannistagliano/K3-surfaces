@@ -4,7 +4,7 @@ if version#"VERSION" < "1.18" then error "this package requires Macaulay2 versio
 newPackage(
     "K3s",
     Version => "1.0", 
-    Date => "October 2, 2021",
+    Date => "October 9, 2021",
     Authors => {{Name => "Michael Hoff", 
                  Email => "hahn@math.uni-sb.de"},
                 {Name => "Giovanni Staglianò", 
@@ -15,14 +15,14 @@ newPackage(
     DebuggingMode => false
 )
 
-if SpecialFanoFourfolds.Options.Version < "2.3" then (
-    <<endl<<"Your version of the SpecialFanoFourfolds package is outdated (required version 2.3 or newer);"<<endl;
+if SpecialFanoFourfolds.Options.Version < "2.4" then (
+    <<endl<<"Your version of the SpecialFanoFourfolds package is outdated (required version 2.4 or newer);"<<endl;
     <<"you can manually download the latest version from"<<endl;
     <<"https://github.com/Macaulay2/M2/tree/development/M2/Macaulay2/packages."<<endl;
     <<"To automatically download the latest version of SpecialFanoFourfolds in your current directory,"<<endl;
     <<"you may run the following Macaulay2 code:"<<endl<<"***"<<endl<<endl;
     <<///run "curl -s -o SpecialFanoFourfolds.m2 https://raw.githubusercontent.com/Macaulay2/M2/development/M2/Macaulay2/packages/SpecialFanoFourfolds.m2";///<<endl<<endl<<"***"<<endl;
-    error "required SpecialFanoFourfolds package version 2.3 or newer";
+    error "required SpecialFanoFourfolds package version 2.4 or newer";
 );
 
 export{"K3","LatticePolarizedK3surface","EmbeddedK3surface","project","mukaiModel",
@@ -70,11 +70,9 @@ map (LatticePolarizedK3surface,ZZ,ZZ) := o -> (S,a,b) -> (
     n := M_(1,1);
     g := lift((M_(0,0) + 2)/2,ZZ);
     if d == 0 and n == -2 then if b != 0 then error "the K3 surface is nodal";
-    H := ideal hyperplane S;
-    C := ideal S#"curve";
-    phi := multirationalMap(if b != 0 then mapDefinedByDivisor(ring Var S,{(H,a),(C,b)}) else mapDefinedByDivisor(ring Var S,{(H,a)}));
-    if ring source phi =!= ring Var S then error "internal error encountered: bad source found";
-    phi#"source" = Var S;
+    H := hyperplane S;
+    C := S#"curve";
+    phi := mapDefinedByDivisor(Var S,{(H,a),(C,b)});
     if dim target phi =!= genus(S,a,b) then error("expected map to PP^"|(toString genus(S,a,b))|", but got map to PP^"|toString(dim target phi));
     S.cache#("map",a,b) = phi
 );
