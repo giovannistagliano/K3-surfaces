@@ -116,7 +116,7 @@ LatticePolarizedK3surface Sequence := (S,ab) -> (
     (a,b) := ab;
     if S.cache#?("var",a,b) then return S.cache#("var",a,b);    
     f := map(S,a,b);
-    if f#"image" === null and char coefficientRing S <= 65521 and genus(S,1,0) > 3 then f#"image" = Var image(toRationalMap f,"F4");
+    if f#"image" === null and char coefficientRing S <= 65521 and genus(S,1,0) > 3 then image(f,"F4");
     T := new EmbeddedK3surface from image f;
     if dim ambient T <= 2 then error "the linear system is not very ample";
     -- (???) this fixes a bug in conversion of output to net, but it is a bit dangerous.
@@ -428,7 +428,7 @@ randomPointedMukaiThreefold ZZ := o -> g -> (
         psi = rationalMap(quinticDelPezzoSurface * random(1,0_quinticDelPezzoSurface),2);
         p = psi point source psi;
         j = parametrize random({{1},{1}},p);
-        X = j^* Var image(2,toRationalMap psi);
+        X = j^* image(2,psi);
         p = j^* p;
         return (X,p);
     );
@@ -492,7 +492,7 @@ randomMukaiThreefoldContainingLine ZZ := o -> g -> (
         psi = rationalMap((image mapDP5) * random(1,pt),2);
         L = psi linearSpan {pt,point source psi};
         j = parametrize random({{1},{1}},L);
-        X = j^* Var image(2,toRationalMap psi);
+        X = j^* image(2,psi);
         L = j^* L;
         return (X,L);
     );
