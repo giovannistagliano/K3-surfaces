@@ -4,7 +4,7 @@ if version#"VERSION" < "1.18" then error "this package requires Macaulay2 versio
 newPackage(
     "K3s",
     Version => "1.0", 
-    Date => "October 9, 2021",
+    Date => "October 11, 2021",
     Authors => {{Name => "Michael Hoff", 
                  Email => "hahn@math.uni-sb.de"},
                 {Name => "Giovanni Staglianò", 
@@ -580,7 +580,7 @@ pointLineAndConicOnMukaiThreefoldOfGenus10 = (K,withLine,withConic) -> (
     if ? ideal q != "one-point scheme in PP^11" then error "something went wrong";
     if withConic then (
         -- the base locus of psi is supported on C and a reducible curve D, the union of 4 lines
-        D := (Var trim lift(ideal matrix toRationalMap psi,ring ambient source psi)) \\ C;
+        D := (Var trim lift(ideal matrix psi,ring ambient source psi)) \\ C;
         -- L is a line passing through p\in C which is contained in Q and intersects D in one point (thus psi L is a conic)
         -- (this needs to find a K-rational point on a certain 0-dimensional set defined over K)
         p' := select(decompose(D * coneOfLines(Q,p)),i -> dim i == 0 and degree i == 1);
@@ -775,6 +775,8 @@ mukaiModel ZZ := o -> g -> (
                      {-w_0,-w_1,-w_2,-w_3,-w_4,-w_5,0}};
         X = projectiveVariety pfaffians(4,M);
         assert(dim X == 5 and codim X == 8 and degree X == 18 and sectionalGenus X == 10);
+        psi = inverse((rationalMap {w_1,w_5,w_8,w_9,w_13,w_12})|X);
+        X.cache#"rationalParametrization" = psi;        
         return X;
     );
     if g == 12 then ( -- see also pointLineAndConicOnMukaiThreefoldOfGenus12
