@@ -179,7 +179,7 @@ K3 ZZ := o -> g -> (
     if g == 11 then (
         if o.Verbose then <<"-- constructing general K3 surface of genus "<<g<<" and degree "<<2*g-2<<" in PP^"<<g<<endl;
         if o.Verbose then <<"-- (taking a random GM fourfold X of discriminant 20, hence containing a surface S of degree 9 and genus 2)"<<endl;
-        X = specialGushelMukaiFourfold("surface of degree 9 and genus 2",K);
+        X = specialGushelMukaiFourfold("general GM 4-fold of discriminant 20",K);
         if o.Verbose then <<"-- (running procedure 'associatedK3surface' for the GM fourfold X of discriminant 20)"<<endl<<"-- *** --"<<endl;
         Ass = associatedK3surface(X,Verbose=>o.Verbose);
         if o.Verbose then <<"-- *** --"<<endl;
@@ -807,7 +807,8 @@ mukaiModel ZZ := o -> g -> (
 beginDocumentation() 
 
 document {Key => K3s, 
-Headline => "A package for constructing explicit examples of K3 surfaces"} 
+Headline => "A package for constructing explicit examples of K3 surfaces",
+References => UL{{"M. H. and G. S., ",EM"Explicit constructions of K3 surfaces and unirational Noether-Lefschetz divisors",", available at ",HREF{"https://arxiv.org/abs/2110.15819","arXiv:2110.15819"}," (2021)."}}}
 
 document {Key => {LatticePolarizedK3surface}, 
 Headline => "the class of all lattice-polarized K3 surfaces",
