@@ -4,7 +4,7 @@ if version#"VERSION" < "1.18" then error "this package requires Macaulay2 versio
 newPackage(
     "K3s",
     Version => "1.0", 
-    Date => "October 12, 2021",
+    Date => "November 10, 2021",
     Authors => {{Name => "Michael Hoff", 
                  Email => "hahn@math.uni-sb.de"},
                 {Name => "Giovanni Staglianò", 
@@ -15,14 +15,14 @@ newPackage(
     DebuggingMode => false
 )
 
-if SpecialFanoFourfolds.Options.Version < "2.4" then (
-    <<endl<<"Your version of the SpecialFanoFourfolds package is outdated (required version 2.4 or newer);"<<endl;
+if SpecialFanoFourfolds.Options.Version < "2.5" then (
+    <<endl<<"Your version of the SpecialFanoFourfolds package is outdated (required version 2.5 or newer);"<<endl;
     <<"you can manually download the latest version from"<<endl;
     <<"https://github.com/Macaulay2/M2/tree/development/M2/Macaulay2/packages."<<endl;
     <<"To automatically download the latest version of SpecialFanoFourfolds in your current directory,"<<endl;
     <<"you may run the following Macaulay2 code:"<<endl<<"***"<<endl<<endl;
     <<///run "curl -s -o SpecialFanoFourfolds.m2 https://raw.githubusercontent.com/Macaulay2/M2/development/M2/Macaulay2/packages/SpecialFanoFourfolds.m2";///<<endl<<endl<<"***"<<endl;
-    error "required SpecialFanoFourfolds package version 2.4 or newer";
+    error "required SpecialFanoFourfolds package version 2.5 or newer";
 );
 
 export{"K3","LatticePolarizedK3surface","EmbeddedK3surface","project","mukaiModel",
@@ -428,7 +428,7 @@ randomPointedMukaiThreefold ZZ := o -> g -> (
         return (X,p);
     );
     if g == 6 then (
-        G14 := Var Grass(1,4,K,Variable=>"t");
+        G14 := GG(K,1,4);
         p = schubertCycle((3,3),G14);
         j = parametrize random({{1},{1}},p);
         p = j^* p;
@@ -445,7 +445,7 @@ randomPointedMukaiThreefold ZZ := o -> g -> (
         return (X,p);
     );
     if g == 8 then (
-        G15 := Var Grass(1,5,K,Variable=>"t");
+        G15 := GG(K,1,5);
         p = schubertCycle((4,4),G15);
         j = parametrize random({{1},{1},{1},{1},{1}},p);
         X = j^* G15;
@@ -491,7 +491,7 @@ randomMukaiThreefoldContainingLine ZZ := o -> g -> (
         return (X,L);
     );
     if g == 6 then (
-        G14 := Var Grass(1,4,K,Variable=>"t");
+        G14 := GG(K,1,4);
         L = schubertCycle((3,2),G14);
         j = parametrize random({{1},{1}},L);
         L = j^* L;
@@ -509,7 +509,7 @@ randomMukaiThreefoldContainingLine ZZ := o -> g -> (
         return (X,L);
     );
     if g == 8 then (
-        G15 := Var Grass(1,5,K,Variable=>"t");
+        G15 := GG(K,1,5);
         L = schubertCycle((4,3),G15);
         j = parametrize random({{1},{1},{1},{1},{1}},L);
         X = j^* G15;
@@ -584,7 +584,7 @@ pointLineAndConicOnMukaiThreefoldOfGenus10 = (K,withLine,withConic) -> (
     psi := rationalMap(C_Q,5,2);
     if dim target psi != 11 then error "something went wrong";
     psi = toRationalMap psi;
-    if K === ZZ/(char K) then interpoleImage(psi,toList(28:2),2) else forceImage(psi,image(2,psi));
+    if K === ZZ/(char K) then interpolateImage(psi,toList(28:2),2) else forceImage(psi,image(2,psi));
     psi = multirationalMap psi;
     X := psi#"image";
     assert(X =!= null);
@@ -621,11 +621,11 @@ pointLineAndConicOnMukaiThreefoldOfGenus12 = (K,withLine,withConic) -> (
     line := null; conic := null;
     f := rationalMap veronese(1,6,K);
     f = f * rationalMap(target f,ring PP_K^4,for i to 4 list random(1,target f));
-    p := ideal point PP_K^4;
-    C := trim sub(image f,quotient arandom({2},intersect(p,image f)));
+    p := ideal point PP_K^4;    
+    C := trim sub(image f,quotient ideal random(2,Var intersect(p,image f)));
     psi := rationalMap(saturate(C^2),5);
     if numgens target psi != 14 then error "something went wrong";
-    if K === ZZ/(char K) then interpoleImage(psi,toList(45:2),2) else forceImage(psi,image(2,psi));
+    if K === ZZ/(char K) then interpolateImage(psi,toList(45:2),2) else forceImage(psi,image(2,psi));
     X := psi#"idealImage";
     assert(X =!= null);
     p = psi p;
@@ -646,7 +646,7 @@ pointLineAndConicOnMukaiThreefoldOfGenus12 = (K,withLine,withConic) -> (
         C = trim lift(C,ring PP_K^4);
         q := f point source f;
         -- L is a secant line to the sextic curve C contained in the quadric, source of psi
-        q' := select(decompose saturate(C + coneOfLines(ideal source psi,q),q),l -> dim l == 1 and degree l == 1);
+        q' := select(decompose saturate(C + ideal coneOfLines(Var ideal source psi,Var q),q),l -> dim l == 1 and degree l == 1);
         if # q' == 0 then error ("failed to find line on random Mukai threefold of genus 12 defined over "|toString(K));
         L := ideal image basis(1,intersect(q,first q'));
         F := psi L;
@@ -756,7 +756,7 @@ mukaiModel ZZ := o -> g -> (
         return X;
     );
     if g == 7 then ( -- See [Zak - Tangents and secants of algebraic varieties - Thm. 3.8 (case 5), p. 67.]
-        psi = rationalMap(image(Var Grass(1,4,K,Variable=>"t") << PP_K^10),2,Dominant=>true);
+        psi = rationalMap(image(GG(K,1,4) << PP_K^10),2,Dominant=>true);
         X = image psi;
         X.cache#"rationalParametrization" = psi;
         assert(dim X == 10 and codim X == 5 and degree X == 12 and sectionalGenus X == 7);
@@ -978,6 +978,7 @@ for g in {3,4,5,6,7,8,9,10,12} do (
 
 TEST ///
 for g from 3 to 12 do (
+    setRandomSeed 123456789;
     <<"(g,d,n) = "<<(g,2,-2)<<endl;
     time S = K3(g,2,-2);
     T = S#"surface";
