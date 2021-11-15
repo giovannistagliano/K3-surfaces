@@ -990,51 +990,6 @@ EXAMPLE {"X = mukaiModel 9;", "(degree X, sectionalGenus X)", "parametrize X"}}
 
 -- Tests --
 
-TEST /// -- randomPointedMukaiThreefold
-debug K3s;
-K = ZZ/333331;
-for g in {3,4,5,6,7,8,9,10,12} do (
-    <<"g = "<<g<<endl;
-    time (X,p) = randomPointedMukaiThreefold(g,CoefficientRing=>K);
-    assert(coefficientRing ring X === K and dim ambient X == g+1);
-    assert isSubset(p,X);
-    assert (? ideal p == "one-point scheme in PP^"|toString(g+1));
-    assert(dim X == 3);
-    assert(sectionalGenus X == g);
-    assert(degree X == 2*g-2);
-);
-///
-
-TEST /// -- randomMukaiThreefoldContainingLine
-debug K3s;
-K = ZZ/333331;
-setRandomSeed 123456789
-for g in {3,4,5,6,7,8,9,10,12} do (
-    <<"g = "<<g<<endl;
-    time (X,L) = randomMukaiThreefoldContainingLine(g,CoefficientRing=>K);
-    assert(coefficientRing ring X === K and dim ambient X == g+1);
-    assert isSubset(L,X);
-    assert (? ideal L == "line in PP^"|toString(g+1));
-    assert(dim X == 3);
-    assert(sectionalGenus X == g);
-    assert(degree X == 2*g-2);
-);
-///
-
-TEST ///
-for g from 3 to 12 do (
-    setRandomSeed 123456789;
-    <<"(g,d,n) = "<<(g,2,-2)<<endl;
-    time S = K3(g,2,-2);
-    T = S#"surface";
-    C = S#"curve";
-    L = S#"lattice";
-    assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
-    assert(dim C == 1 and degree C == 2 and sectionalGenus C == 0 and isSubset(C,T));
-    assert(L == matrix{{2*g-2,2},{2,-2}});
-);
-///
-
 TEST ///
 for g in {3,4,5,6,7,8,9} do (
     <<"(g,d,n) = "<<(g,1,-2)<<endl;
@@ -1045,36 +1000,6 @@ for g in {3,4,5,6,7,8,9} do (
     assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
     assert(dim C == 1 and degree C == 1 and sectionalGenus C == 0 and isSubset(C,T));
     assert(L == matrix{{2*g-2,1},{1,-2}}); 
-);
-///
-
-TEST ///
-setRandomSeed 123456789;
-for g in {10,12} do (
-    <<"(g,d,n) = "<<(g,1,-2)<<endl;
-    time S = K3(g,1,-2);
-    T = S#"surface";
-    C = S#"curve";
-    L = S#"lattice";
-    assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
-    assert(dim C == 1 and degree C == 1 and sectionalGenus C == 0 and isSubset(C,T));
-    assert(L == matrix{{2*g-2,1},{1,-2}}); 
-);
-///
-
-TEST ///
-for e in 
-select({3,4,5} ** toList(3..8),e -> ((g,d) = toSequence e; (member(g,{3,4,5}) and d >= 3) and (g != 5 or d <= 8) and (g != 4 or d <= 6) and (g != 3 or d <= 8)))
-do (
-    (g,d) := toSequence e;
-    <<"(g,d,n) = "<<(g,d,-2)<<endl;
-    time S = K3(g,d,-2);
-    T = S#"surface";
-    C = S#"curve";
-    L = S#"lattice";
-    assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
-    assert(dim C == 1 and degree C == d and sectionalGenus C == 0 and isSubset(C,T));
-    assert(L == matrix{{2*g-2,d},{d,-2}});   
 );
 ///
 
@@ -1095,7 +1020,7 @@ do (
 ///
 
 TEST ///
-for g in {3,4,5,6,7,8,9,10,12} do (
+for g in {3,4,5,6,7,8,9} do (
     <<"(g,d,n) = "<<(g,0,-2)<<endl;
     time S = K3(g,0,-2);
     T = S#"surface";
@@ -1108,7 +1033,7 @@ for g in {3,4,5,6,7,8,9,10,12} do (
 ///
 
 TEST ///
-for g from 3 to 15 do (
+for g from 3 to 12 do (
     for d from 3 to 5 do (
         <<"(g,d,n) = "<<(g,d,0)<<endl;
         time S = K3(g,d,0);
@@ -1123,14 +1048,169 @@ for g from 3 to 15 do (
 ///
 
 TEST ///
-for g in {3,4,5,6,7,8,9,10,12} do (<<"g = "<<g<<endl; time K3 g); 
+for e in 
+select({3,4,5} ** toList(3..8),e -> ((g,d) = toSequence e; (member(g,{3,4,5}) and d >= 3) and (g != 5 or d <= 8) and (g != 4 or d <= 6) and (g != 3 or d <= 8)))
+do (
+    (g,d) := toSequence e;
+    <<"(g,d,n) = "<<(g,d,-2)<<endl;
+    time S = K3(g,d,-2);
+    T = S#"surface";
+    C = S#"curve";
+    L = S#"lattice";
+    assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
+    assert(dim C == 1 and degree C == d and sectionalGenus C == 0 and isSubset(C,T));
+    assert(L == matrix{{2*g-2,d},{d,-2}});   
+);
+///
+
+TEST /// -- randomPointedMukaiThreefold
+debug K3s;
+K = ZZ/333331;
+for g in {3,4,5,6,7,8,9} do (
+    <<"g = "<<g<<endl;
+    time (X,p) = randomPointedMukaiThreefold(g,CoefficientRing=>K);
+    assert(coefficientRing ring X === K and dim ambient X == g+1);
+    assert isSubset(p,X);
+    assert (? ideal p == "one-point scheme in PP^"|toString(g+1));
+    assert(dim X == 3);
+    assert(sectionalGenus X == g);
+    assert(degree X == 2*g-2);
+);
+///
+
+TEST /// -- randomMukaiThreefoldContainingLine
+debug K3s;
+K = ZZ/333331;
+setRandomSeed 123456789
+for g in {3,4,5,6,7,8,9} do (
+    <<"g = "<<g<<endl;
+    time (X,L) = randomMukaiThreefoldContainingLine(g,CoefficientRing=>K);
+    assert(coefficientRing ring X === K and dim ambient X == g+1);
+    assert isSubset(L,X);
+    assert (? ideal L == "line in PP^"|toString(g+1));
+    assert(dim X == 3);
+    assert(sectionalGenus X == g);
+    assert(degree X == 2*g-2);
+);
+///
+
+TEST ///
+for g from 3 to 7 do (
+    setRandomSeed 123456789;
+    <<"(g,d,n) = "<<(g,2,-2)<<endl;
+    time S = K3(g,2,-2);
+    T = S#"surface";
+    C = S#"curve";
+    L = S#"lattice";
+    assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
+    assert(dim C == 1 and degree C == 2 and sectionalGenus C == 0 and isSubset(C,T));
+    assert(L == matrix{{2*g-2,2},{2,-2}});
+);
+///
+
+TEST ///
+for g in {3,4,5,6,7,8,9} do (<<"g = "<<g<<endl; time K3 g); 
 ///;
+
+end;
+
+-- Hard tests
+
+TEST ///
+K3 10;
+K3 12;
+///
 
 TEST ///
 K3 11 
 ///
 
-end;
+TEST ///
+for g from 8 to 12 do (
+    setRandomSeed 123456789;
+    <<"(g,d,n) = "<<(g,2,-2)<<endl;
+    time S = K3(g,2,-2);
+    T = S#"surface";
+    C = S#"curve";
+    L = S#"lattice";
+    assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
+    assert(dim C == 1 and degree C == 2 and sectionalGenus C == 0 and isSubset(C,T));
+    assert(L == matrix{{2*g-2,2},{2,-2}});
+);
+///
+
+TEST /// -- randomMukaiThreefoldContainingLine
+debug K3s;
+K = ZZ/333331;
+setRandomSeed 123456789
+for g in {10,12} do (
+    <<"g = "<<g<<endl;
+    time (X,L) = randomMukaiThreefoldContainingLine(g,CoefficientRing=>K);
+    assert(coefficientRing ring X === K and dim ambient X == g+1);
+    assert isSubset(L,X);
+    assert (? ideal L == "line in PP^"|toString(g+1));
+    assert(dim X == 3);
+    assert(sectionalGenus X == g);
+    assert(degree X == 2*g-2);
+);
+///
+
+TEST /// -- randomPointedMukaiThreefold
+debug K3s;
+K = ZZ/333331;
+for g in {10,12} do (
+    <<"g = "<<g<<endl;
+    time (X,p) = randomPointedMukaiThreefold(g,CoefficientRing=>K);
+    assert(coefficientRing ring X === K and dim ambient X == g+1);
+    assert isSubset(p,X);
+    assert (? ideal p == "one-point scheme in PP^"|toString(g+1));
+    assert(dim X == 3);
+    assert(sectionalGenus X == g);
+    assert(degree X == 2*g-2);
+);
+///
+
+TEST ///
+for g from 13 to 15 do (
+    for d from 3 to 5 do (
+        <<"(g,d,n) = "<<(g,d,0)<<endl;
+        time S = K3(g,d,0);
+        T = S#"surface";
+        C = S#"curve";
+        L = S#"lattice";
+        assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
+        assert(dim C == 1 and degree C == d and isSubset(C,T) and sectionalGenus C == 1);
+        assert(L == matrix{{2*g-2,d},{d,0}});       
+    );
+);
+///
+
+TEST ///
+setRandomSeed 123456789;
+for g in {10,12} do (
+    <<"(g,d,n) = "<<(g,1,-2)<<endl;
+    time S = K3(g,1,-2);
+    T = S#"surface";
+    C = S#"curve";
+    L = S#"lattice";
+    assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
+    assert(dim C == 1 and degree C == 1 and sectionalGenus C == 0 and isSubset(C,T));
+    assert(L == matrix{{2*g-2,1},{1,-2}}); 
+);
+///
+
+TEST ///
+for g in {10,12} do (
+    <<"(g,d,n) = "<<(g,0,-2)<<endl;
+    time S = K3(g,0,-2);
+    T = S#"surface";
+    C = S#"curve";
+    L = S#"lattice";
+    assert(dim T == 2 and degree T == 2*g-2 and sectionalGenus T == g and dim ambient T == g);
+    assert(dim C == 0 and degree C == 1 and isSubset(C,T) and dim tangentSpace(T,C) > 2);
+    assert(L == matrix{{2*g-2,0},{0,-2}});       
+);
+///
 
 TEST ///
 K3 20
@@ -1139,20 +1219,4 @@ K3 20
 TEST ///
 K3 22
 ///
-
--*
-i2 : check K3s -- (Sat  2 Oct 15:22:07 CEST 2021)
- -- capturing check(0, "K3s")                                                -- 154.967 seconds elapsed
- -- capturing check(1, "K3s")                                                -- 157.371 seconds elapsed
- -- capturing check(2, "K3s")                                                -- 513.055 seconds elapsed
- -- capturing check(3, "K3s")                                                -- 7.92272 seconds elapsed
- -- capturing check(4, "K3s")                                                -- 179.605 seconds elapsed
- -- capturing check(5, "K3s")                                                -- 5.83594 seconds elapsed
- -- capturing check(6, "K3s")                                                -- 10.9908 seconds elapsed
- -- capturing check(7, "K3s")                                                -- 184.311 seconds elapsed
- -- capturing check(8, "K3s")                                                -- 75.5268 seconds elapsed
- -- capturing check(9, "K3s")                                                -- 191.279 seconds elapsed
- -- capturing check(10, "K3s")                                               -- 376.414 seconds elapsed
-*-
-
 
