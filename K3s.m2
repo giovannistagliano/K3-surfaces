@@ -163,7 +163,7 @@ K3 ZZ := o -> g -> (
     makegeneralK3 := (f,p,g) -> (
         K3surf := new EmbeddedK3surface from image f;
         assert(sectionalGenus K3surf == g and degree K3surf == 2*g-2 and dim ambient K3surf == g and dim p == 0 and isSubset(p,K3surf));
-        if g != 22 then assert(degree p == 1);
+        if g <= 12 then assert(degree p == 1);
         f#"image" = K3surf;
         K3surf.cache#"mapK3" = f;
         K3surf.cache#"pointK3" = p;
@@ -392,6 +392,23 @@ assert(# possibilities == 5292);
 fewPossibilities = select(possibilities,l -> first l <= 44);
 assert(# fewPossibilities == 1157);
 
+isprimitive = method();
+isprimitive (Matrix,ZZ,ZZ) := memoize((M,a,b) -> (
+    if numRows M =!= 2 or numColumns M =!= 2 or ring M =!= ZZ then error "expected a 2 x 2 matrix over ZZ"; 
+    sage := findProgram("sage", "sage --help");
+    dir := temporaryFileName() | "/";
+    mkdir dir;
+    S := "from sage.all import *"|newline;
+    S = S|"M = Matrix(ZZ,[["|toString(M_(0,0))|","|toString(M_(0,1))|"],["|toString(M_(1,0))|","|toString(M_(1,1))|"]]);"|newline;
+    S = S|"U = IntegralLattice(M);"|newline;
+    S = S|"x = U.is_primitive(U.span([vector(["|toString(a)|","|toString(b)|"])]));"|newline;
+    S = S|"(open('"|dir|"output.sage','w')).write(str(x));"|newline;
+    dir|"input.sage" << S << close;
+    runProgram(sage,"input.sage",RunDirectory=>dir);
+    v := get(dir|"output.sage");
+    if v === "False" then false else if v === "True" then true else error "something went wrong"
+));
+
 K3 String := o -> strG -> (
     G := value strG;
     if not instance(G,ZZ) then error "expected the string of an integer";
@@ -406,6 +423,31 @@ K3 String := o -> strG -> (
         );
     );
     return apply(P,l -> take(l,{4,6}));
+);
+
+K3 (String,VisibleList) := o -> (strG,opt) -> (
+    if not #opt == 1 then error "option not available";
+    opt = first opt;
+    if first toList opt =!= Unique then error "Unique is the only available option for K3(String)";
+    if not last opt then return K3 strG;    
+    G := value strG;
+    if not instance(G,ZZ) then error "expected the string of an integer";
+    if G > 100 then error "not implemented yet: show available functions to construct K3 surfaces of genus > 100";
+    P := select(possibilities,l -> first l == G);
+    local g'; local c; local a; local b; local g; local d; local n;
+    E := {};
+    for s in P do (
+        (g',c,a,b,g,d,n) = s;
+        if not member((g',c,n),E) then (
+            if not isprimitive(matrix{{2*g-2,d},{d,n}},a,b) then (
+                -- <<"case (g',c,a,b,g,d,n) = "<<(g',c,a,b,g,d,n)<<" excluded as it does not give a primitive lattice embedding"<<endl;
+                continue;
+            );
+            E = append(E,(g',c,n));
+            if o.Verbose then <<"(K3("<<g<<","<<d<<","<<n<<"))("<<a<<","<<b<<") -- K3 surface of genus "<<g'<<" and degree "<<2*g'-2<<" containing "<<(if n == -2 then "rational" else if n == 0 then "elliptic" else "")<<" curve of degree "<<c<<endl;
+        );
+    );
+    return E
 );
 
 randomPointedMukaiThreefold = method(Options => {CoefficientRing => ZZ/65521});
@@ -836,11 +878,14 @@ EXAMPLE {"S = K3(3,5,-2);", "S(1,1)", "T = K3 S(1,1)", "T(1,0)"}}
 
 document {Key => {(K3,String)}, 
 Headline => "show available functions to construct K3 surfaces of given genus", 
-Usage => "K3 \"G\"", 
+Usage => "K3 \"G\"
+K3(\"G\",[Unique=>true])", 
 Inputs => { String => "G" => {"the string of an integer"}}, 
 Outputs => {List => {"a list of terns ",TT"(d,g,n)"," such that (",TO2{(K3,ZZ,ZZ,ZZ),TT"(K3(d,g,n)"},")",TO2{(symbol SPACE,LatticePolarizedK3surface,Sequence),"(a,b)"}," is a K3 surface of genus ",TT"G",", for some integers ",TT"a,b"}}, 
 EXAMPLE {"K3 \"11\"", "S = K3(5,5,-2)", "S(1,2)", "K3 S(1,2)"}, 
 SeeAlso => {(K3,ZZ,ZZ,ZZ),(symbol SPACE,LatticePolarizedK3surface,Sequence)}}
+
+undocumented {(K3,String,VisibleList)};
 
 document {Key => {(K3,ZZ)}, 
 Headline => "make a general K3 surface",
